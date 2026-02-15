@@ -1,0 +1,26 @@
+# Output generado
+output/
+
+# Imágenes de trabajo en projects
+projects/**/*.png
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Word temp files
+~$*.docx
+~$*.xlsx
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Claude Code local config
+.claude/
+
+# IDE
+.vscode/
+.idea/
