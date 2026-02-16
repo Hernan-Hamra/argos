@@ -94,6 +94,8 @@ print(render_band(
             ("CISSAB (rikudim)", [(1990, 1992)]),
         ]),
         ("TRABAJO:", [
+            ("Negocio del papá (ver)", [(1984, 1986)]),
+            ("Mano Emerg.Méd.(ver)", [(1987, 1987)]),
             ("Madrich (mov.juv.)", [(1989, 1992)]),
         ]),
     ]
@@ -107,6 +109,7 @@ print(render_band(
             ("Terciario IMEF", [(1994, 1997)], "✓ Prof.Ed.Física (98)"),
             ("Esc.Nac.Danzas", [(1993, 1993)], "6 meses"),
             ("Danza jazz", [(1993, 1994)]),
+            ("Circo y acrobacia", [(1998, 1999)], "post-IMEF"),
             ("Teatro San Martín", [(1995, 1995)]),
             ("Teatro C.C.Sábato", [(2001, 2004)], "✓ Actor (~04)"),
             ("Esc.Teatro Rubén", [(2005, 2006)], "2 años"),

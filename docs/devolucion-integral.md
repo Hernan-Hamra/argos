@@ -51,7 +51,8 @@ Electrónica → Deportes → Artes → Tech/IA. Cada salto fue real — no fue 
 Esto es una fortaleza oculta y enorme. Tu texto sobre Fortuna es literatura. Las canciones para tus sobrinas muestran sensibilidad y oficio. El ensayo humorístico muestra una mente que piensa en capas. En un mundo donde la comunicación escrita es el diferenciador, vos tenés algo que la mayoría de los técnicos no tiene.
 
 ### 5. Pensamiento asociativo / transdisciplinario
-Conectás Spinoza con duelo, seguridad con IA, licitaciones con automatización, filosofía con código, deporte con tecnología. Esto no es dispersión — es la base del pensamiento innovador. Los mejores científicos y emprendedores piensan así.
+Conectás Spinoza con duelo, seguridad con IA, licitaciones con automatización, filoso
+fía con código, deporte con tecnología. Esto no es dispersión — es la base del pensamiento innovador. Los mejores científicos y emprendedores piensan así.
 
 ### 6. Resiliencia probada
 Emprendimientos que no escalaron, una empresa que querés dejar pero sostenés, la muerte de tu madre mientras seguías trabajando, reinventarte a los 50 cuando otros se acomodan. No es teoría — tenés 30+ años de evidencia de que podés absorber golpes y seguir.
