@@ -127,6 +127,10 @@ print(render_band(
 print(render_band(
     "PARTE 2: POST-SECUNDARIO Y ERA DEPORTES (1993-2013)", 1993, 2013,
     [
+        ("DEPORTES / ENTRENAMIENTO:", [
+            ("Gimnasio fuerza/hip.", [(1998, 2001)], "pico post-IMEF"),
+            ("Running (entren+comp)", [(1998, 2012)], "2-3 media maratones"),
+        ]),
         ("EDUCACIÓN / FORMACIÓN:", [
             ("Terciario IMEF", [(1994, 1997)], "✓ Prof.Ed.Física (98)"),
             ("Esc.Nac.Danzas", [(1993, 1993)], "6 meses"),
@@ -193,6 +197,10 @@ print(render_band(
         ]),
         ("TRABAJO 3 (paralelo):", [
             ("Personal trainer", [(2014, 2022)], "(última clase 2022, desde 96 dentro de Ser Dinámico)"),
+        ]),
+        ("DEPORTES / ENTRENAMIENTO:", [
+            ("Gimnasio fuerza/hip.", [(2023, 2023)], "2do pico fuerte"),
+            ("Pádel", [(2019, 2026)], "fecha inicio ¿?"),
         ]),
         ("FORMACIÓN:", [
             ("Python Coursera", [(2020, 2020)], "✓ (mar 2020)"),
