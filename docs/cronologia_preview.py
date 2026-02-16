@@ -150,6 +150,7 @@ print(render_band(
             ("Bialik de Devoto", [(1996, 1997)], "coord. adolescentes, 1ra PC"),
             ("Ser Dinámico", [(1996, 2013)], "→ sigue hasta 2017"),
             ("  └─ Personal trainer", [(1996, 2013)], "→ sigue hasta 2022"),
+            ("  └─ Running/entren.", [(1996, 2013)], "2-3 media maratones"),
             ("Or Torá (Barracas)", [(1998, 2001)], "profe, fechas ¿?"),
             ("  └─ Escuelita fútbol", [(1999, 2000)], "extra-escolar, 2 años ¿?"),
             ("Esc.Deport. Filiol", [(1998, 1999)], "2 años, fechas ¿?"),
@@ -168,6 +169,7 @@ print(render_band(
             ("Nace Uriel", [(2007, 2007)], "(26/02)"),
             ("Nace Sol", [(2008, 2008)], "(11/04)"),
             ("Nace Matías", [(2011, 2011)], "(03/10)"),
+            ("† Raúl (padre)", [(2012, 2012)], "(12/06/2012) mismo día media maratón"),
         ]),
     ]
 ))

@@ -214,7 +214,7 @@ Bar Mitzvá Matías                                █               (7/10/2024)
 - [ ] Fecha exacta de inicio en Hebraica (¿1993 o 1994?)
 - [ ] Fecha exacta de inicio en Mi Refugio (¿1995 o 1996?)
 - [ ] Fechas de los cursos de clown
-- [ ] Fecha de fallecimiento de Raúl Jacobo Hamra (padre) — ¿año?
+- [x] ~~Fecha de fallecimiento de Raúl Jacobo Hamra (padre)~~ → **12 de junio de 2012**
 - [ ] Bat mitzvá de Sol — ¿fecha exacta?
 - [ ] Título de actor (Centro Cultural Sábato) — digitalizar documento físico
 - [ ] Fecha de inicio de noviazgo con Natalia (calculado ~1996/97)
@@ -244,6 +244,7 @@ Empezó los fines de semana, ~1 año después de entrar a Hebraica. La etapa má
 **5. "Ser Dinámico de Deporte y Nutrición" (1996-2017 — 21 años, en paralelo)**
 Su marca propia. Paraguas para:
 - **Personal Trainer** — desde Mi Refugio hasta 2022 (última clase). Muchos años en paralelo.
+- **Running / Entrenamiento de carrera** — entrenaba gente de Mi Refugio y alumnos personales para correr. También entrenaba y corría él. Corrió 2-3 media maratones. El **12 de junio de 2012**, el mismo domingo que murió su padre Raúl, corrió una media maratón acompañando a un alumno.
 - **Viandas kosher** — planes de nutrición para alumnos. Funcionó pero faltaba capital.
 - **Calzas deportivas** — fabricación y venta. Vendió pero no pudo escalar.
 - **Capacitaciones** — Fisiología del Deporte, Metodología de la Enseñanza.
@@ -416,7 +417,7 @@ Domicilio familiar: Av. Ricardo Balbín 2535 2 D, Belgrano, CABA
 
 ### Familia de origen (5 hermanos, 2 pares de mellizos)
 ```
-Raúl Jacobo Hamra (✝ ¿año?) ─┬─ Fortuna Jabbaz (nombre hebreo: Mazal) (1939-2024)
+Raúl Jacobo Hamra (✝ 12/06/2012) ─┬─ Fortuna Jabbaz (nombre hebreo: Mazal) (1939-2024)
                                │   Psicóloga pionera en Argentina
                                │   Hija de Celia Cabbani e Iacov Jabbaz
                                │   Falleció marzo 2024 (tras 5 años postrada)
@@ -465,7 +466,7 @@ Raúl Jacobo Hamra (✝ ¿año?) ─┬─ Fortuna Jabbaz (nombre hebreo: Mazal)
 - Nombre civil del suegro Aharon
 - Nombre de la abuela materna de Hernán (Shoshana en hebreo, ¿nombre civil?)
 - Amigos íntimos (nombres si quiere compartir)
-- Padre Raúl Jacobo: ¿cuándo falleció?
+- ~~Padre Raúl Jacobo: ¿cuándo falleció?~~ → 12 de junio de 2012
 - Fechas exactas bar/bat mitzvá de los hijos
 
 ---
