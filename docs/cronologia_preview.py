@@ -16,19 +16,33 @@ def age_range(y1, y2):
         return str(a1)
     return f"{a1}-{a2}"
 
-def render_band(title, first_year, last_year, sections, label_width=24):
+def render_band(title, first_year, last_year, sections, label_width=26):
     years = list(range(first_year, last_year + 1))
+    col_w = 4  # ancho por columna (3 chars + separador)
     lines = []
-    lines.append(f"──── {title} " + "─" * max(0, 90 - len(title) - 6))
+    lines.append(f"──── {title} " + "─" * max(0, 95 - len(title) - 6))
     lines.append("")
-    header = " " * label_width + "".join(f"{y % 100:02d} " for y in years)
-    # Age header
-    age_hdr = " " * label_width + "".join(f"{(y - BIRTH_YEAR):2d} " for y in years)
+
+    # Header: años con separadores verticales
+    header = " " * label_width
+    for i, y in enumerate(years):
+        header += f"{y % 100:02d}  "
     lines.append(header)
-    lines.append(age_hdr + "  ← edad")
-    lines.append(" " * label_width + "─" * (len(years) * 3))
+
+    # Age header
+    age_hdr = " " * label_width
+    for y in years:
+        age_hdr += f"{(y - BIRTH_YEAR):2d}  "
+    lines.append(age_hdr + " ← edad")
+
+    # Línea separadora con cruces
+    sep = " " * label_width
+    for i in range(len(years)):
+        sep += "┼───"
+    lines.append(sep)
 
     for section_name, activities in sections:
+        # Nombre de sección con línea de guías
         lines.append(section_name)
         for act in activities:
             name = act[0]
@@ -50,14 +64,22 @@ def render_band(title, first_year, last_year, sections, label_width=24):
             display_name = f"{name} {age_info}".strip()
             padded = display_name.ljust(label_width)
             data = ""
-            for y in years:
-                data += "█  " if y in year_set else "   "
+            for i, y in enumerate(years):
+                if y in year_set:
+                    data += "██▌ "
+                else:
+                    data += "│   "
 
             line = padded + data
             if suffix:
                 line = line.rstrip() + "  " + suffix
             lines.append(line)
-        lines.append("")
+
+        # Línea guía entre secciones
+        guide = " " * label_width
+        for i in range(len(years)):
+            guide += "│   "
+        lines.append(guide)
     return "\n".join(lines)
 
 
