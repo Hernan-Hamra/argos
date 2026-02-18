@@ -1,27 +1,19 @@
-# Output generado
+# Datos personales (NO pushear a repo público)
+data/
 output/
+docs/
 
-# Imágenes de trabajo en projects
-projects/**/*.png
+# Claude Code config (tiene memoria personal)
+.claude/
 
 # Python
 __pycache__/
 *.pyc
-*.pyo
 venv/
 
-# Word temp files
-~$*.docx
-~$*.xlsx
+# Imágenes generadas en projects
+projects/**/*.png
 
 # OS
 Thumbs.db
-desktop.ini
 .DS_Store
-
-# Claude Code local config
-.claude/
-
-# IDE
-.vscode/
-.idea/
