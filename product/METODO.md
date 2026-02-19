@@ -135,6 +135,22 @@ El usuario dice QUÉ quiere. ARGOS decide CÓMO hacerlo. Claude Code escribe el 
 
 ---
 
+## Perfiles de usuario
+
+ARGOS se adapta al perfil del usuario. Cada perfil activa módulos y flujos distintos:
+
+| Perfil | Módulos principales | Ejemplo real |
+|--------|--------------------|----|
+| **Project Manager** | Estructura de obra, materiales (pedido/entregado/stock), avance por etapa, subcontratistas, proveedores, alertas de tiempos, cobranzas | Posadas: 8 pisos, 28 items materiales, 3 proveedores |
+| **Psicólogo** | Pacientes, sesiones, evolución, turnos, facturación, notas privadas | Seguimiento de 20 pacientes con alertas de asistencia |
+| **Secretaria/Admin** | Agenda, comunicaciones, trámites, archivo, recordatorios | Gestión de turnos + correspondencia + seguimiento |
+| **Emprendedor** | Pipeline ventas, cotizaciones, clientes, cobros, métricas | AiControl: presupuestos + seguimiento comercial |
+| **Personal** | Organización digital, fechas, salud, familia, búsqueda laboral | Balance vida/trabajo + tracking multidimensional |
+
+Los perfiles no son excluyentes. Un usuario puede ser Project Manager en lo laboral y Personal en lo privado (como el caso piloto).
+
+---
+
 ## Lo que hace único al método
 
 1. **No es una app con botones.** Es una conversación con un asistente que te conoce.
@@ -142,3 +158,4 @@ El usuario dice QUÉ quiere. ARGOS decide CÓMO hacerlo. Claude Code escribe el 
 3. **No pierde contexto.** La memoria persiste entre sesiones.
 4. **No juzga.** Pero tampoco miente si le pedís honestidad.
 5. **Crece con vos.** Cada sesión lo hace más útil.
+6. **Se adapta a tu perfil.** No es lo mismo un psicólogo que un director de obra.
