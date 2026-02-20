@@ -173,6 +173,21 @@ def init_db():
         FOREIGN KEY (persona_id) REFERENCES personas(id)
     )''')
 
+    # --- NUTRICIÓN (registro de comidas) ---
+    c.execute('''CREATE TABLE IF NOT EXISTS nutricion (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha TEXT NOT NULL,
+        comida TEXT NOT NULL,            -- desayuno, almuerzo, merienda, cena, snack
+        descripcion TEXT NOT NULL,       -- qué comió
+        del_plan INTEGER DEFAULT 1,      -- 1=dentro del plan, 0=fuera del plan
+        proteina INTEGER DEFAULT 0,      -- 1=incluyó proteína adecuada
+        vegetales INTEGER DEFAULT 0,     -- 1=incluyó vegetales (2 colores min)
+        agua_litros REAL,                -- agua acumulada del día
+        suplementos TEXT,                -- whey, creatina, magnesio (separados por coma)
+        notas TEXT,
+        created_at TEXT DEFAULT (datetime('now','localtime'))
+    )''')
+
     conn.commit()
     conn.close()
     print(f"DB inicializada en: {os.path.abspath(DB_PATH)}")
@@ -660,6 +675,203 @@ def imprimir_horas(fecha_desde=None, fecha_hasta=None):
             print(f"  {d['fecha']}  Total:{total:4.1f}hs  SBD:{lab:4.1f}hs  Personal:{per:4.1f}hs  ({d['sesiones']} sesiones)")
 
     print(f"{'='*50}")
+
+
+# === NUTRICIÓN ===
+
+PLAN_OPCIONES = {
+    'desayuno': [
+        'Omelette proteico (4 huevos + espinaca/tomate + galletas arroz + queso)',
+        'Pancake proteico (avena + huevo + whey + banana)',
+        'Tostada con palta y huevo (3 huevos + palta + tomate)',
+        'Yogur con granola (yogur desc + granola Integra + fruta)',
+        'Wrap salado (rapiditas + pollo + palta + vegetales)',
+        'Chia y avena pudding (chia + avena + whey + fruta)',
+    ],
+    'almuerzo': [
+        'Plato plan: proteina 270g + vegetales 2 colores + legumbres + grasa buena',
+    ],
+    'merienda': [
+        'Omelette proteico', 'Pancake proteico', 'Tostada con palta y huevo',
+        'Yogur con granola', 'Wrap salado', 'Chia y avena pudding',
+    ],
+    'cena': [
+        'Plato plan: proteina 270g + vegetales 2 colores + legumbres + grasa buena',
+    ],
+    'snack': [
+        'Banana + whey con agua/leche',
+        'Barrita proteica + banana',
+        'Sandwich jamon y queso',
+        'Yogur proteico + 40g frutos secos',
+    ],
+}
+
+SUPLEMENTOS_PLAN = ['whey', 'creatina', 'magnesio']
+
+
+def registrar_comida(fecha, comida, descripcion, del_plan=1, proteina=0, vegetales=0,
+                     agua_litros=None, suplementos=None, notas=None):
+    """Registrar una comida. comida: desayuno, almuerzo, merienda, cena, snack."""
+    conn = get_connection()
+    c = conn.cursor()
+    # Crear tabla si no existe
+    c.execute('''CREATE TABLE IF NOT EXISTS nutricion (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha TEXT NOT NULL, comida TEXT NOT NULL, descripcion TEXT NOT NULL,
+        del_plan INTEGER DEFAULT 1, proteina INTEGER DEFAULT 0, vegetales INTEGER DEFAULT 0,
+        agua_litros REAL, suplementos TEXT, notas TEXT,
+        created_at TEXT DEFAULT (datetime('now','localtime'))
+    )''')
+    c.execute('''INSERT INTO nutricion (fecha, comida, descripcion, del_plan, proteina, vegetales,
+                 agua_litros, suplementos, notas) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+              (fecha, comida.lower(), descripcion, del_plan, proteina, vegetales,
+               agua_litros, suplementos, notas))
+    nid = c.lastrowid
+    conn.commit()
+    conn.close()
+    return nid
+
+
+def get_nutricion_dia(fecha=None):
+    """Ver todas las comidas de un día."""
+    if fecha is None:
+        fecha = date.today().isoformat()
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('SELECT * FROM nutricion WHERE fecha = ? ORDER BY id', (fecha,))
+    rows = c.fetchall()
+    conn.close()
+
+    if not rows:
+        print(f"Sin registros de comida para {fecha}")
+        return []
+
+    comidas_orden = ['desayuno', 'almuerzo', 'merienda', 'cena', 'snack']
+    print(f"\n{'='*55}")
+    print(f"  NUTRICION {fecha}")
+    print(f"{'='*55}")
+
+    suplementos_dia = set()
+    proteina_ok = 0
+    vegetales_ok = 0
+    fuera_plan = 0
+
+    for r in rows:
+        plan_tag = 'OK' if r['del_plan'] else 'FUERA'
+        prot_tag = 'P' if r['proteina'] else '-'
+        veg_tag = 'V' if r['vegetales'] else '-'
+        print(f"  {r['comida'].upper():10s} | [{plan_tag:5s}] [{prot_tag}][{veg_tag}] {r['descripcion']}")
+        if r['suplementos']:
+            for s in r['suplementos'].split(','):
+                suplementos_dia.add(s.strip().lower())
+        if r['proteina']:
+            proteina_ok += 1
+        if r['vegetales']:
+            vegetales_ok += 1
+        if not r['del_plan']:
+            fuera_plan += 1
+        if r['notas']:
+            print(f"{'':13s}   Nota: {r['notas']}")
+
+    # Resumen del día
+    total = len(rows)
+    agua = None
+    for r in rows:
+        if r['agua_litros']:
+            agua = r['agua_litros']
+
+    print(f"\n  --- Resumen ---")
+    print(f"  Comidas: {total} | Del plan: {total - fuera_plan}/{total} | Fuera: {fuera_plan}")
+    print(f"  Proteina OK: {proteina_ok}/{total} | Vegetales OK: {vegetales_ok}/{total}")
+
+    # Suplementos check
+    faltantes = [s for s in SUPLEMENTOS_PLAN if s not in suplementos_dia]
+    tomados = [s for s in SUPLEMENTOS_PLAN if s in suplementos_dia]
+    if tomados:
+        print(f"  Suplementos: {', '.join(tomados)}")
+    if faltantes:
+        print(f"  Faltan: {', '.join(faltantes)}")
+
+    if agua:
+        ok = 'OK' if agua >= 2.0 else 'BAJO'
+        print(f"  Agua: {agua:.1f}L [{ok}] (meta: 2-3L)")
+
+    print(f"{'='*55}\n")
+    return [dict(r) for r in rows]
+
+
+def get_nutricion_semana(fecha_desde=None):
+    """Resumen nutricional semanal."""
+    if fecha_desde is None:
+        from datetime import timedelta
+        fecha_desde = (date.today() - timedelta(days=6)).isoformat()
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('''SELECT fecha, COUNT(*) as comidas,
+                 SUM(del_plan) as del_plan, SUM(proteina) as con_proteina,
+                 SUM(vegetales) as con_vegetales, MAX(agua_litros) as agua,
+                 GROUP_CONCAT(DISTINCT suplementos) as supls
+                 FROM nutricion WHERE fecha >= ?
+                 GROUP BY fecha ORDER BY fecha''', (fecha_desde,))
+    rows = c.fetchall()
+    conn.close()
+
+    if not rows:
+        print(f"Sin registros desde {fecha_desde}")
+        return []
+
+    print(f"\n{'='*65}")
+    print(f"  NUTRICION SEMANAL desde {fecha_desde}")
+    print(f"{'='*65}")
+    print(f"  {'FECHA':12s} {'COMIDAS':8s} {'PLAN':6s} {'PROT':6s} {'VEG':6s} {'AGUA':6s} {'SUPLS'}")
+    print(f"  {'-'*60}")
+
+    total_dias = len(rows)
+    total_plan = 0
+    total_comidas = 0
+
+    for r in rows:
+        plan_pct = f"{r['del_plan'] or 0}/{r['comidas']}"
+        prot_pct = f"{r['con_proteina'] or 0}/{r['comidas']}"
+        veg_pct = f"{r['con_vegetales'] or 0}/{r['comidas']}"
+        agua_str = f"{r['agua']:.1f}L" if r['agua'] else '-'
+        supls = r['supls'] or '-'
+        # Limpiar duplicados en suplementos
+        if supls != '-':
+            all_s = set()
+            for part in supls.split(','):
+                all_s.add(part.strip().lower())
+            supls = ', '.join(sorted(all_s))
+        print(f"  {r['fecha']:12s} {r['comidas']:8d} {plan_pct:6s} {prot_pct:6s} {veg_pct:6s} {agua_str:6s} {supls}")
+        total_plan += (r['del_plan'] or 0)
+        total_comidas += r['comidas']
+
+    adherencia = (total_plan / total_comidas * 100) if total_comidas > 0 else 0
+    print(f"\n  Adherencia al plan: {adherencia:.0f}% ({total_plan}/{total_comidas} comidas)")
+    print(f"  Dias registrados: {total_dias}")
+    print(f"{'='*65}\n")
+
+    return [dict(r) for r in rows]
+
+
+def imprimir_plan():
+    """Mostrar el plan nutricional de referencia."""
+    print("\n" + "="*55)
+    print("  PLAN NUTRICIONAL - Lic. Julieta B. Iglesias")
+    print("  artro nutricion - Feb 2026")
+    print("="*55)
+
+    for comida, opciones in PLAN_OPCIONES.items():
+        print(f"\n  {comida.upper()}:")
+        for i, op in enumerate(opciones, 1):
+            print(f"    {i}. {op}")
+
+    print(f"\n  SUPLEMENTOS: whey (en comidas), creatina 5g post-comida, magnesio antes de dormir")
+    print(f"  EJERCICIO: gym 2-3x/sem, cardio 3-4x/sem, 10k pasos/dia")
+    print(f"  AGUA: 2-3 litros/dia")
+    print(f"  ORDEN: vegetales -> proteina -> hidratos. Fruta de postre, nunca antes.")
+    print(f"  POST-COMIDA: 10 min caminata (baja glucemia)")
+    print(f"{'='*55}\n")
 
 
 # === MIGRACIÓN DESDE SEGUIMIENTO.MD ===

@@ -70,8 +70,13 @@ Estado: `[ ]` pendiente, `[x]` hecho, `[~]` en progreso
 
 - [x] **P1** Registro de turnos médicos y resultados (tabla salud)
 - [x] **P1** Registro de entrenamientos con intensidad
+- [x] **P1** Seguimiento nutricional — tabla nutricion en DB, registro de comidas, check proteina/vegetales/suplementos, adherencia al plan
+- [x] **P1** Plan nutricional cargado — opciones del plan de la nutricionista como referencia en código (imprimir_plan())
+- [x] **P1** Resumen nutricional diario — get_nutricion_dia() con check de suplementos y agua
+- [x] **P1** Resumen nutricional semanal — get_nutricion_semana() con % adherencia
+- [ ] **P1** Lista de compras semanal — generar lista de supermercado basada en el plan nutricional (proteinas, vegetales, legumbres, suplementos, snacks, marcas recomendadas)
 - [ ] **P2** Plan de entrenamiento semanal — generado según objetivos y disponibilidad
-- [ ] **P2** Seguimiento nutricional — registro de comidas, calorías estimadas
+- [ ] **P2** Sugerencia de menú semanal — rotar opciones del plan para no repetir
 - [ ] **P3** Integración con apps de fitness (Strava, Google Fit, Apple Health)
 
 ## Producto y comercialización
@@ -128,3 +133,4 @@ Usuario A tiene un problema → ARGOS le genera un script → funciona
 |---|---|
 | 20/02/2026 | Creación inicial del backlog con ~35 items |
 | 20/02/2026 | Agregada sección Comunidad y ecosistema — visión estratégica de crecimiento exponencial |
+| 20/02/2026 | Nutrición: tabla DB + 4 funciones (registrar_comida, get_dia, get_semana, imprimir_plan). Pendiente: lista de compras |
