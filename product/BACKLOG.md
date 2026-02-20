@@ -81,7 +81,9 @@ Estado: `[ ]` pendiente, `[x]` hecho, `[~]` en progreso
 
 ## Producto y comercialización
 
+- [ ] **P0** Onboarding Natalia (usuario #2) — primera sesión lunes 23/02 noche. Definir qué necesita, armar perfil, DB separada o compartida
 - [ ] **P1** Demo grabada — video de 3-5 min mostrando capacidades reales
+- [ ] **P1** Rol "secretario ejecutivo" — ARGOS como asistente que organiza agenda, sigue pendientes, recuerda deadlines, redacta, consulta. Automatizar al máximo.
 - [ ] **P2** Onboarding automatizado — wizard de primera sesión para nuevo usuario
 - [ ] **P2** Multi-usuario — separar perfiles, cada uno con su DB y memoria
 - [ ] **P3** Pricing model — definir cómo se cobra (suscripción, por uso, por módulo)
@@ -128,9 +130,65 @@ Usuario A tiene un problema → ARGOS le genera un script → funciona
 
 ---
 
+## Definición de producto (POR RESOLVER)
+
+> **Insight clave (20/02/2026):** El valor de ARGOS no es una app ni una feature.
+> Es la capacidad de **entender un problema y generar la herramienta que lo resuelve, casi en tiempo real.**
+> Es el pensamiento sistémico (del mundo IT) aplicado a TODO: salud, familia, trabajo, finanzas, organización.
+> Un "secretario ejecutivo" que no solo organiza — sino que **construye soluciones nuevas sobre la marcha.**
+
+### Qué es ARGOS realmente (para definir el producto)
+- [~] **P0** Definir el pitch en 1 oración — BORRADOR:
+  > **ARGOS es un asistente IA personalizado de AiControl, gestionado desde la nube, con herramientas optimizadas por la comunidad y adaptadas a todas las necesidades. Ágil de usar.**
+- [ ] **P0** Definir los 3 perfiles de usuario objetivo — ¿quién lo usa? (profesional independiente, PyME, familia organizada?)
+- [ ] **P1** Definir el diferencial vs alternativas — ¿por qué ARGOS y no Notion + ChatGPT + Trello?
+- [ ] **P1** Definir el modelo de entrega — ¿cómo llega al usuario? (CLI, bot Telegram, web, app?)
+- [ ] **P1** Definir qué se vende — ¿la plataforma? ¿las tools? ¿el servicio de secretario? ¿todo junto?
+
+### Capacidades core que son el producto
+1. **Generación de herramientas on-demand** — el usuario describe un problema, ARGOS genera el script/tool
+2. **Secretario ejecutivo** — agenda, pendientes, deadlines, seguimiento, redacción, consultas
+3. **Tracking integral** — horas, salud, nutrición, entrenamientos, proyectos, personas
+4. **Documentación automática** — Word, PDF, Excel, formularios, foliación
+5. **Memoria persistente** — ARGOS recuerda todo, conecta información, detecta patrones
+6. **Comunidad de tools** — marketplace donde los usuarios comparten y mejoran herramientas
+
+### Decisiones tomadas (20/02/2026)
+- [x] **B2C directo a usuario.** AiControl factura al cliente final. No es B2B.
+- [x] **El usuario NO necesita saber código.** Caja negra. Si sabe, mejor — se le ofrece más. Pero no es requisito.
+- [x] **Telegram automático como primera interfaz.** La sensación de charla es clave. El usuario habla con ARGOS por Telegram.
+- [x] **Ambos perfiles para arrancar:** Natalia (no-técnica, familia) + Hernán (técnico, laboral). Ver diferencias en la práctica.
+- [x] **Modelo:** Suscripción mensual. Cliente paga, descarga/configura, AiControl ayuda a configurar.
+
+### Preguntas pendientes
+- [ ] ¿Cuál es el "caso de uso killer"? = la primera cosa que probás y decís "wow, esto lo necesito". Puede ser: que te organice la semana, que te haga la lista del super, que te recuerde todo. Lo vamos a descubrir con Natalia.
+- [ ] **Pricing:** Claude API cuesta ~USD 20/mes al usuario. Si AiControl cobra USD 10 encima, el margen es bajo. Opciones:
+  - Cobrar USD 15-25/mes de fee (total cliente: USD 35-45/mes)
+  - Explorar: ¿el usuario paga la API directo o AiControl absorbe el costo y cobra todo junto?
+- [ ] **Constraint: dependencia de Opus.** La capacidad de generar herramientas nuevas, entender problemas complejos y mantener contexto largo es lo que hace a ARGOS valioso — y eso hoy solo lo hace bien Opus (el modelo más caro). Modelos más baratos (Sonnet, Haiku, GPT-4o) no generan tools con la misma calidad. Esto limita bajar costos con modelos baratos. Solución futura: router inteligente (Opus para crear, Sonnet/Haiku para operar). Pero hoy el motor es caro y hay que cobrarlo acorde.
+- [ ] **Constraint: dependencia de acceso al filesystem.** ARGOS genera código y trabaja con los archivos del cliente (Word, PDF, Excel, carpetas de proyectos). Esa es la parte más valiosa. Sin acceso a archivos, solo queda el rol "secretario" (agenda, recordatorios). Opciones de entrega:
+  - A) Instalación local en PC del cliente (máximo poder, difícil para no-técnicos)
+  - B) Telegram + API de nube (Google Drive/OneDrive) — acceso parcial, tools limitadas
+  - C) Telegram solo — fácil pero pierde el diferencial de generar herramientas
+  - D) Servidor remoto que accede a la nube del cliente — potente pero complejo de armar
+  - **PROPUESTA DE ARQUITECTURA (20/02/2026):**
+  - AiControl vende suscripciones gestionadas (todo incluido para el cliente)
+  - AiControl subcontrata API Anthropic (el cliente no interactúa con Anthropic)
+  - Cada cliente tiene su VM/container en nube de AiControl (ahí corren scripts, DB, tools)
+  - Dashboard propio (tipo chat/secretario) reemplaza VSCode — interfaz simple para no-técnicos
+  - Archivos: cliente sube al dashboard o conecta su nube (Drive/OneDrive API)
+  - Comunidad y marketplace: todo en la nube, centralizado
+  - **Ventajas:** cliente no instala nada, AiControl controla todo, escala con containers, margen propio
+  - **Por resolver:** costo de infra (VMs), desarrollo del dashboard, integración con nubes del cliente
+
+---
+
 ## Historial de cambios
 | Fecha | Cambio |
 |---|---|
 | 20/02/2026 | Creación inicial del backlog con ~35 items |
 | 20/02/2026 | Agregada sección Comunidad y ecosistema — visión estratégica de crecimiento exponencial |
 | 20/02/2026 | Nutrición: tabla DB + 4 funciones (registrar_comida, get_dia, get_semana, imprimir_plan). Pendiente: lista de compras |
+| 20/02/2026 | Natalia como usuario #2. Onboarding agendado lunes 23/02 noche. Rol secretario ejecutivo agregado al backlog |
+| 20/02/2026 | Seccion "Definicion de producto" con preguntas abiertas, capacidades core, y diferencial estrategico |
+| 20/02/2026 | Arquitectura cloud: suscripcion gestionada + VM por cliente + dashboard propio + API subcontratada. Backup DB a OneDrive implementado |
