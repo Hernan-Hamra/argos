@@ -9,6 +9,11 @@ docs/
 # Secrets
 .env
 
+# Bot state files
+bot/.last_update_id
+bot/*.ogg
+bot/*.mp3
+
 # Python
 __pycache__/
 *.pyc

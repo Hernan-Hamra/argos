@@ -478,6 +478,190 @@ def get_metricas_resumen(fecha_desde=None):
     }
 
 
+# === FUNCIONES DE HORAS Y SESIONES ===
+
+def registrar_sesion(fecha, tipo, descripcion, duracion_min, hora_inicio=None,
+                     proyecto_id=None, persona_id=None, subtipo='sesion', notas=None):
+    """Shortcut para registrar una sesión de trabajo con duración.
+    tipo: 'laboral' o 'personal'
+    duracion_min: minutos trabajados
+    hora_inicio: HH:MM (opcional, si no se pone usa la hora actual)
+    """
+    if hora_inicio is None:
+        hora_inicio = datetime.now().strftime('%H:%M')
+    return add_evento(fecha, tipo, descripcion, subtipo=subtipo, hora=hora_inicio,
+                      proyecto_id=proyecto_id, persona_id=persona_id,
+                      fuente='sistema', duracion_min=duracion_min, notas=notas)
+
+
+def registrar_entrenamiento(fecha, actividad, duracion_min, hora=None,
+                            intensidad=None, notas=None):
+    """Registrar sesión de entrenamiento.
+    actividad: gym, correr, padel, caminar, etc.
+    intensidad: 1-5 (opcional)
+    """
+    desc = f'Entrenamiento: {actividad}'
+    if intensidad:
+        desc += f' (intensidad {intensidad}/5)'
+    return add_evento(fecha, 'salud', desc, subtipo='entrenamiento', hora=hora,
+                      persona_id=12, fuente='sistema', duracion_min=duracion_min,
+                      energia=intensidad, notas=notas)
+
+
+def get_entrenamientos(fecha_desde=None, fecha_hasta=None):
+    """Listar entrenamientos en un período."""
+    conn = get_connection()
+    c = conn.cursor()
+    if fecha_desde is None:
+        from datetime import timedelta
+        fecha_desde = (date.today() - timedelta(days=30)).isoformat()
+    if fecha_hasta is None:
+        fecha_hasta = date.today().isoformat()
+    c.execute('''SELECT fecha, hora, descripcion, duracion_min, energia, notas
+                 FROM eventos
+                 WHERE tipo = 'salud' AND subtipo = 'entrenamiento'
+                 AND fecha BETWEEN ? AND ?
+                 ORDER BY fecha ASC''',
+              (fecha_desde, fecha_hasta))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+
+    total_min = sum(r['duracion_min'] or 0 for r in rows)
+    print(f"ENTRENAMIENTOS | {fecha_desde} a {fecha_hasta}")
+    print(f"{'='*50}")
+    print(f"Total: {len(rows)} sesiones, {round(total_min/60,1)}hs")
+    for r in rows:
+        dur = r['duracion_min'] or 0
+        energia = f" [{r['energia']}/5]" if r['energia'] else ""
+        print(f"  {r['fecha']} {r['hora'] or '':5s}  {dur:3d}min{energia}  {r['descripcion']}")
+    print(f"{'='*50}")
+    return rows
+
+
+def get_horas_por_dia(fecha_desde=None, fecha_hasta=None):
+    """Horas trabajadas por día, desglosadas por tipo (laboral/personal/etc).
+    Retorna dict: {fecha: {tipo: minutos_total, ...}, ...}
+    """
+    conn = get_connection()
+    c = conn.cursor()
+    if fecha_desde is None:
+        fecha_desde = date.today().isoformat()
+    if fecha_hasta is None:
+        fecha_hasta = date.today().isoformat()
+    c.execute('''SELECT fecha, tipo, SUM(duracion_min) as total_min, COUNT(*) as sesiones
+                 FROM eventos
+                 WHERE fecha BETWEEN ? AND ?
+                 AND duracion_min IS NOT NULL AND duracion_min > 0
+                 GROUP BY fecha, tipo
+                 ORDER BY fecha ASC, tipo ASC''',
+              (fecha_desde, fecha_hasta))
+    rows = c.fetchall()
+    conn.close()
+
+    resultado = {}
+    for r in rows:
+        r = dict(r)
+        fecha = r['fecha']
+        if fecha not in resultado:
+            resultado[fecha] = {}
+        resultado[fecha][r['tipo']] = {
+            'minutos': r['total_min'],
+            'horas': round(r['total_min'] / 60, 1),
+            'sesiones': r['sesiones']
+        }
+    return resultado
+
+
+def get_horas_resumen(fecha_desde=None, fecha_hasta=None):
+    """Resumen de horas: total por tipo + por proyecto + por día.
+    Ideal para saber cuánto trabajó Hernán en SBD vs personal.
+    """
+    conn = get_connection()
+    c = conn.cursor()
+    if fecha_desde is None:
+        from datetime import timedelta
+        fecha_desde = (date.today() - timedelta(days=7)).isoformat()
+    if fecha_hasta is None:
+        fecha_hasta = date.today().isoformat()
+
+    # Total por tipo
+    c.execute('''SELECT tipo, SUM(duracion_min) as total_min, COUNT(*) as sesiones
+                 FROM eventos
+                 WHERE fecha BETWEEN ? AND ?
+                 AND duracion_min IS NOT NULL AND duracion_min > 0
+                 GROUP BY tipo ORDER BY total_min DESC''',
+              (fecha_desde, fecha_hasta))
+    por_tipo = [dict(r) for r in c.fetchall()]
+
+    # Total por proyecto
+    c.execute('''SELECT p.nombre as proyecto, e.tipo, SUM(e.duracion_min) as total_min,
+                 COUNT(*) as sesiones
+                 FROM eventos e
+                 LEFT JOIN proyectos p ON e.proyecto_id = p.id
+                 WHERE e.fecha BETWEEN ? AND ?
+                 AND e.duracion_min IS NOT NULL AND e.duracion_min > 0
+                 GROUP BY p.nombre, e.tipo ORDER BY total_min DESC''',
+              (fecha_desde, fecha_hasta))
+    por_proyecto = [dict(r) for r in c.fetchall()]
+
+    # Por día
+    c.execute('''SELECT fecha, SUM(duracion_min) as total_min,
+                 SUM(CASE WHEN tipo = 'laboral' THEN duracion_min ELSE 0 END) as laboral_min,
+                 SUM(CASE WHEN tipo = 'personal' THEN duracion_min ELSE 0 END) as personal_min,
+                 COUNT(*) as sesiones
+                 FROM eventos
+                 WHERE fecha BETWEEN ? AND ?
+                 AND duracion_min IS NOT NULL AND duracion_min > 0
+                 GROUP BY fecha ORDER BY fecha ASC''',
+              (fecha_desde, fecha_hasta))
+    por_dia = [dict(r) for r in c.fetchall()]
+
+    conn.close()
+
+    total_min = sum(t['total_min'] for t in por_tipo)
+    return {
+        'periodo': f'{fecha_desde} a {fecha_hasta}',
+        'total_horas': round(total_min / 60, 1),
+        'total_minutos': total_min,
+        'por_tipo': por_tipo,
+        'por_proyecto': por_proyecto,
+        'por_dia': por_dia
+    }
+
+
+def imprimir_horas(fecha_desde=None, fecha_hasta=None):
+    """Print bonito del resumen de horas. Para usar desde Claude Code."""
+    res = get_horas_resumen(fecha_desde, fecha_hasta)
+    print(f"{'='*50}")
+    print(f"HORAS TRABAJADAS | {res['periodo']}")
+    print(f"{'='*50}")
+    print(f"Total: {res['total_horas']}hs ({res['total_minutos']} min)")
+    print()
+
+    if res['por_tipo']:
+        print("POR TIPO:")
+        for t in res['por_tipo']:
+            hs = round(t['total_min'] / 60, 1)
+            print(f"  {t['tipo']:12s} {hs:5.1f}hs  ({t['sesiones']} sesiones)")
+
+    if res['por_proyecto']:
+        print("\nPOR PROYECTO:")
+        for p in res['por_proyecto']:
+            hs = round(p['total_min'] / 60, 1)
+            nombre = p['proyecto'] or '(sin proyecto)'
+            print(f"  {nombre:35s} {hs:5.1f}hs  [{p['tipo']}]")
+
+    if res['por_dia']:
+        print("\nPOR DÍA:")
+        for d in res['por_dia']:
+            total = round(d['total_min'] / 60, 1)
+            lab = round(d['laboral_min'] / 60, 1)
+            per = round(d['personal_min'] / 60, 1)
+            print(f"  {d['fecha']}  Total:{total:4.1f}hs  SBD:{lab:4.1f}hs  Personal:{per:4.1f}hs  ({d['sesiones']} sesiones)")
+
+    print(f"{'='*50}")
+
+
 # === MIGRACIÓN DESDE SEGUIMIENTO.MD ===
 
 def migrar_datos_iniciales():
