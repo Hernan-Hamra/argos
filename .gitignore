@@ -6,6 +6,9 @@ docs/
 # Claude Code config (tiene memoria personal)
 .claude/
 
+# Secrets
+.env
+
 # Python
 __pycache__/
 *.pyc
