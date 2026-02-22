@@ -1,7 +1,7 @@
 """
 ARGOS Tracker - Sistema de seguimiento personal y laboral
-Base de datos SQLite para trackear: proyectos, eventos, personas,
-seguimiento, fechas importantes, salud y métricas.
+Una sola DB (argos_tracker.db) con todo junto.
+En cloud se separa en sistema + usuario.
 """
 
 import sqlite3
@@ -21,71 +21,48 @@ def get_connection():
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
+# Alias para que el código de capacidades no se rompa
+get_connection_sistema = get_connection
+
 
 def init_db():
     """Crear todas las tablas si no existen."""
     conn = get_connection()
     c = conn.cursor()
 
-    # --- PROYECTOS ---
     c.execute('''CREATE TABLE IF NOT EXISTS proyectos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nombre TEXT NOT NULL,
-        tipo TEXT NOT NULL,          -- laboral, personal, salud, formacion
-        categoria TEXT,              -- SBD, AiControl, familia, etc.
-        estado TEXT DEFAULT 'activo', -- activo, pausado, completado, cancelado
-        fecha_inicio TEXT,
-        fecha_fin TEXT,
-        descripcion TEXT,
-        notas TEXT,
+        nombre TEXT NOT NULL, tipo TEXT NOT NULL, categoria TEXT,
+        estado TEXT DEFAULT 'activo', fecha_inicio TEXT, fecha_fin TEXT,
+        descripcion TEXT, notas TEXT,
         created_at TEXT DEFAULT (datetime('now','localtime')),
         updated_at TEXT DEFAULT (datetime('now','localtime'))
     )''')
 
-    # --- PERSONAS ---
     c.execute('''CREATE TABLE IF NOT EXISTS personas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nombre TEXT NOT NULL,
-        relacion TEXT,               -- jefe, cliente, proveedor, familia, amigo, colega
-        empresa TEXT,
-        contacto TEXT,               -- tel, email
-        notas TEXT,
-        perfil_comportamiento TEXT,  -- patrones observados (ej: "controla con dinero")
+        nombre TEXT NOT NULL, relacion TEXT, empresa TEXT, contacto TEXT,
+        notas TEXT, perfil_comportamiento TEXT,
         created_at TEXT DEFAULT (datetime('now','localtime'))
     )''')
 
-    # --- EVENTOS (el corazón del tracking) ---
     c.execute('''CREATE TABLE IF NOT EXISTS eventos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fecha TEXT NOT NULL,
-        hora TEXT,
-        tipo TEXT NOT NULL,          -- laboral, personal, salud, familia, formacion, admin
-        subtipo TEXT,                -- reunion, llamada, email, whatsapp, archivo, decision, hito
-        proyecto_id INTEGER,
-        persona_id INTEGER,
-        descripcion TEXT NOT NULL,
-        fuente TEXT,                 -- whatsapp, email, archivo, reunion, llamada, sistema
-        resultado TEXT,              -- ok, pendiente, fallido, esperando
-        duracion_min INTEGER,        -- duración estimada en minutos
-        energia INTEGER,             -- 1-5 nivel de energía/esfuerzo
-        notas TEXT,
+        fecha TEXT NOT NULL, hora TEXT, tipo TEXT NOT NULL, subtipo TEXT,
+        proyecto_id INTEGER, persona_id INTEGER,
+        descripcion TEXT NOT NULL, fuente TEXT, resultado TEXT,
+        duracion_min INTEGER, energia INTEGER, notas TEXT,
         created_at TEXT DEFAULT (datetime('now','localtime')),
         FOREIGN KEY (proyecto_id) REFERENCES proyectos(id),
         FOREIGN KEY (persona_id) REFERENCES personas(id)
     )''')
 
-    # --- SEGUIMIENTO (pendientes con deadline) ---
     c.execute('''CREATE TABLE IF NOT EXISTS seguimiento (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        evento_id INTEGER,
-        proyecto_id INTEGER,
-        persona_id INTEGER,
-        accion TEXT NOT NULL,        -- qué hay que hacer
-        fecha_limite TEXT,           -- deadline
-        estado TEXT DEFAULT 'pendiente', -- pendiente, en_curso, completado, vencido
-        prioridad TEXT DEFAULT 'media',  -- critica, alta, media, baja
-        recordatorio TEXT,           -- cuándo recordar
-        resultado TEXT,
+        evento_id INTEGER, proyecto_id INTEGER, persona_id INTEGER,
+        accion TEXT NOT NULL, fecha_limite TEXT,
+        estado TEXT DEFAULT 'pendiente', prioridad TEXT DEFAULT 'media',
+        recordatorio TEXT, resultado TEXT,
         created_at TEXT DEFAULT (datetime('now','localtime')),
         completed_at TEXT,
         FOREIGN KEY (evento_id) REFERENCES eventos(id),
@@ -93,99 +70,78 @@ def init_db():
         FOREIGN KEY (persona_id) REFERENCES personas(id)
     )''')
 
-    # --- FECHAS IMPORTANTES ---
     c.execute('''CREATE TABLE IF NOT EXISTS fechas_importantes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        persona_id INTEGER,
-        tipo TEXT NOT NULL,          -- cumpleanos, aniversario, fallecimiento, religioso
-        fecha TEXT NOT NULL,         -- formato MM-DD o YYYY-MM-DD
-        fecha_hebreo TEXT,           -- futuro: calendario hebreo
-        descripcion TEXT,
-        recurrente INTEGER DEFAULT 1, -- 1=anual, 0=una vez
-        notas TEXT,
+        persona_id INTEGER, tipo TEXT NOT NULL, fecha TEXT NOT NULL,
+        fecha_hebreo TEXT, descripcion TEXT, recurrente INTEGER DEFAULT 1, notas TEXT,
         FOREIGN KEY (persona_id) REFERENCES personas(id)
     )''')
 
-    # --- SALUD ---
     c.execute('''CREATE TABLE IF NOT EXISTS salud (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        persona_id INTEGER,
-        tipo TEXT NOT NULL,          -- turno, estudio, control, tratamiento, emergencia
-        fecha TEXT,
-        hora TEXT,
-        profesional TEXT,
-        lugar TEXT,
-        especialidad TEXT,
-        descripcion TEXT,
-        estado TEXT DEFAULT 'pendiente', -- pendiente, realizado, cancelado, reprogramado
-        resultado TEXT,
-        proxima_cita TEXT,
-        notas TEXT,
+        persona_id INTEGER, tipo TEXT NOT NULL, fecha TEXT, hora TEXT,
+        profesional TEXT, lugar TEXT, especialidad TEXT, descripcion TEXT,
+        estado TEXT DEFAULT 'pendiente', resultado TEXT, proxima_cita TEXT, notas TEXT,
         FOREIGN KEY (persona_id) REFERENCES personas(id)
     )''')
 
-    # --- MÉTRICAS (snapshots periódicos) ---
     c.execute('''CREATE TABLE IF NOT EXISTS metricas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fecha TEXT NOT NULL,
-        tipo TEXT NOT NULL,          -- diaria, semanal, mensual
-        proyectos_activos INTEGER,
-        eventos_dia INTEGER,
-        eventos_semana INTEGER,
-        horas_laboral REAL,
-        horas_personal REAL,
-        horas_salud REAL,
-        horas_formacion REAL,
-        balance_vida_trabajo REAL,   -- ratio personal/laboral (>1 = más personal)
-        energia_promedio REAL,       -- promedio del campo energia en eventos
-        pendientes_abiertos INTEGER,
-        pendientes_vencidos INTEGER,
-        notas TEXT,
+        fecha TEXT NOT NULL, tipo TEXT NOT NULL,
+        proyectos_activos INTEGER, eventos_dia INTEGER, eventos_semana INTEGER,
+        horas_laboral REAL, horas_personal REAL, horas_salud REAL, horas_formacion REAL,
+        balance_vida_trabajo REAL, energia_promedio REAL,
+        pendientes_abiertos INTEGER, pendientes_vencidos INTEGER, notas TEXT,
         created_at TEXT DEFAULT (datetime('now','localtime'))
     )''')
 
-    # --- TAGS (para categorización flexible) ---
     c.execute('''CREATE TABLE IF NOT EXISTS tags (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        evento_id INTEGER,
-        tag TEXT NOT NULL,
+        evento_id INTEGER, tag TEXT NOT NULL,
         FOREIGN KEY (evento_id) REFERENCES eventos(id)
     )''')
 
-    # --- AGENDA (calendario hacia adelante) ---
     c.execute('''CREATE TABLE IF NOT EXISTS agenda (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fecha TEXT NOT NULL,
-        hora TEXT,
-        hora_fin TEXT,
-        titulo TEXT NOT NULL,
-        tipo TEXT NOT NULL,          -- turno, reunion, cita, compromiso, visita, deadline, personal
-        proyecto_id INTEGER,
-        persona_id INTEGER,
-        lugar TEXT,
-        descripcion TEXT,
-        recurrente TEXT,             -- NULL=una vez, diario, semanal, mensual, anual
-        recordatorio_dias INTEGER DEFAULT 1,  -- cuántos días antes avisar
-        estado TEXT DEFAULT 'pendiente',      -- pendiente, confirmado, cancelado, realizado
-        notas TEXT,
+        fecha TEXT NOT NULL, hora TEXT, hora_fin TEXT, titulo TEXT NOT NULL,
+        tipo TEXT NOT NULL, proyecto_id INTEGER, persona_id INTEGER,
+        lugar TEXT, descripcion TEXT, recurrente TEXT,
+        recordatorio_dias INTEGER DEFAULT 1, estado TEXT DEFAULT 'pendiente', notas TEXT,
         created_at TEXT DEFAULT (datetime('now','localtime')),
         FOREIGN KEY (proyecto_id) REFERENCES proyectos(id),
         FOREIGN KEY (persona_id) REFERENCES personas(id)
     )''')
 
-    # --- NUTRICIÓN (registro de comidas) ---
     c.execute('''CREATE TABLE IF NOT EXISTS nutricion (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fecha TEXT NOT NULL,
-        comida TEXT NOT NULL,            -- desayuno, almuerzo, merienda, cena, snack
-        descripcion TEXT NOT NULL,       -- qué comió
-        del_plan INTEGER DEFAULT 1,      -- 1=dentro del plan, 0=fuera del plan
-        proteina INTEGER DEFAULT 0,      -- 1=incluyó proteína adecuada
-        vegetales INTEGER DEFAULT 0,     -- 1=incluyó vegetales (2 colores min)
-        agua_litros REAL,                -- agua acumulada del día
-        suplementos TEXT,                -- whey, creatina, magnesio (separados por coma)
-        notas TEXT,
+        fecha TEXT NOT NULL, comida TEXT NOT NULL, descripcion TEXT NOT NULL,
+        del_plan INTEGER DEFAULT 1, proteina INTEGER DEFAULT 0, vegetales INTEGER DEFAULT 0,
+        agua_litros REAL, suplementos TEXT, notas TEXT,
         created_at TEXT DEFAULT (datetime('now','localtime'))
+    )''')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS capacidades (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre TEXT NOT NULL UNIQUE, nombre_display TEXT NOT NULL,
+        descripcion TEXT, herramienta TEXT, protocolo TEXT, categoria TEXT,
+        version INTEGER DEFAULT 1, origen TEXT DEFAULT 'sistema',
+        es_generalizable INTEGER DEFAULT 1, perfiles TEXT, keywords TEXT,
+        veces_usada INTEGER DEFAULT 1, ultima_vez TEXT,
+        estado TEXT DEFAULT 'activa', mejora_de INTEGER, notas TEXT,
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        updated_at TEXT DEFAULT (datetime('now','localtime')),
+        FOREIGN KEY (mejora_de) REFERENCES capacidades(id)
+    )''')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS patrones (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha_deteccion TEXT NOT NULL, tipo TEXT NOT NULL, categoria TEXT NOT NULL,
+        descripcion TEXT NOT NULL, evidencia TEXT,
+        frecuencia INTEGER DEFAULT 1, confianza REAL DEFAULT 0.5,
+        estado TEXT DEFAULT 'detectado', sugerencia TEXT,
+        compartido INTEGER DEFAULT 0, anonimizado_en TEXT, ultimo_visto TEXT, notas TEXT,
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        updated_at TEXT DEFAULT (datetime('now','localtime'))
     )''')
 
     conn.commit()
@@ -493,6 +449,158 @@ def get_metricas_resumen(fecha_desde=None):
     }
 
 
+# === CAPACIDADES (catálogo dinámico herramienta + protocolo) ===
+
+def add_capacidad(nombre, nombre_display, descripcion=None, herramienta=None,
+                  protocolo=None, categoria=None, origen='sistema',
+                  es_generalizable=1, perfiles=None, keywords=None, notas=None):
+    """Registrar una capacidad nueva en el catálogo dinámico.
+    Va a DB SISTEMA (compartible).
+    """
+    import json as _json
+    conn = get_connection_sistema()
+    c = conn.cursor()
+    hoy = date.today().isoformat()
+
+    # Serializar protocolo si es dict/list
+    if isinstance(protocolo, (dict, list)):
+        protocolo = _json.dumps(protocolo, ensure_ascii=False)
+    if isinstance(perfiles, list):
+        perfiles = _json.dumps(perfiles, ensure_ascii=False)
+    if isinstance(keywords, list):
+        keywords = ', '.join(keywords)
+
+    c.execute('''INSERT INTO capacidades (nombre, nombre_display, descripcion, herramienta,
+                 protocolo, categoria, origen, es_generalizable, perfiles, keywords,
+                 ultima_vez, notas)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+              (nombre, nombre_display, descripcion, herramienta, protocolo,
+               categoria, origen, es_generalizable, perfiles, keywords, hoy, notas))
+    cid = c.lastrowid
+    conn.commit()
+    conn.close()
+    return cid
+
+
+def mejorar_capacidad(capacidad_id, nueva_herramienta=None, nuevo_protocolo=None,
+                      nueva_descripcion=None, notas_mejora=None):
+    """Registrar una mejora a una capacidad existente. DB SISTEMA."""
+    import json as _json
+    conn = get_connection_sistema()
+    c = conn.cursor()
+
+    # Leer la capacidad actual
+    c.execute('SELECT * FROM capacidades WHERE id = ?', (capacidad_id,))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return None
+
+    original = dict(row)
+
+    # Marcar la anterior como mejorada
+    c.execute('''UPDATE capacidades SET estado = 'mejorada',
+                 updated_at = datetime('now','localtime') WHERE id = ?''', (capacidad_id,))
+
+    # Serializar si es necesario
+    protocolo = nuevo_protocolo or original['protocolo']
+    if isinstance(protocolo, (dict, list)):
+        protocolo = _json.dumps(protocolo, ensure_ascii=False)
+
+    # Crear nueva versión
+    nueva_version = (original['version'] or 1) + 1
+    nombre_v = original['nombre']  # mismo nombre, nueva versión
+
+    c.execute('''INSERT INTO capacidades (nombre, nombre_display, descripcion, herramienta,
+                 protocolo, categoria, version, origen, es_generalizable, perfiles,
+                 keywords, veces_usada, ultima_vez, estado, mejora_de, notas)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'activa', ?, ?)''',
+              (nombre_v + f'_v{nueva_version}',
+               original['nombre_display'],
+               nueva_descripcion or original['descripcion'],
+               nueva_herramienta or original['herramienta'],
+               protocolo,
+               original['categoria'],
+               nueva_version,
+               original['origen'],
+               original['es_generalizable'],
+               original['perfiles'],
+               original['keywords'],
+               original['veces_usada'],
+               date.today().isoformat(),
+               capacidad_id,
+               notas_mejora or f'Mejora de v{original["version"]}'))
+    new_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    return new_id
+
+
+def usar_capacidad(nombre):
+    """Incrementar contador de uso de una capacidad por nombre. DB SISTEMA."""
+    conn = get_connection_sistema()
+    c = conn.cursor()
+    hoy = date.today().isoformat()
+    c.execute('''UPDATE capacidades SET veces_usada = veces_usada + 1,
+                 ultima_vez = ?, updated_at = datetime('now','localtime')
+                 WHERE nombre = ? AND estado = 'activa' ''', (hoy, nombre))
+    conn.commit()
+    conn.close()
+
+
+def get_catalogo(solo_activas=True):
+    """Obtener catálogo completo de capacidades. DB SISTEMA."""
+    conn = get_connection_sistema()
+    c = conn.cursor()
+    if solo_activas:
+        c.execute('''SELECT * FROM capacidades WHERE estado = 'activa'
+                     ORDER BY categoria, veces_usada DESC''')
+    else:
+        c.execute('SELECT * FROM capacidades ORDER BY categoria, nombre, version DESC')
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
+def buscar_capacidad(texto):
+    """Buscar capacidades por texto. DB SISTEMA."""
+    conn = get_connection_sistema()
+    c = conn.cursor()
+    patron = f'%{texto.lower()}%'
+    c.execute('''SELECT * FROM capacidades
+                 WHERE estado = 'activa'
+                 AND (LOWER(nombre) LIKE ? OR LOWER(nombre_display) LIKE ?
+                      OR LOWER(descripcion) LIKE ? OR LOWER(keywords) LIKE ?
+                      OR LOWER(herramienta) LIKE ? OR LOWER(protocolo) LIKE ?)
+                 ORDER BY veces_usada DESC''',
+              (patron, patron, patron, patron, patron, patron))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
+def get_capacidad_por_nombre(nombre):
+    """Obtener una capacidad activa por su nombre exacto. DB SISTEMA."""
+    conn = get_connection_sistema()
+    c = conn.cursor()
+    c.execute('''SELECT * FROM capacidades WHERE nombre = ? AND estado = 'activa' ''', (nombre,))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_historial_capacidad(nombre_base):
+    """Ver todas las versiones de una capacidad. DB SISTEMA."""
+    conn = get_connection_sistema()
+    c = conn.cursor()
+    patron = f'{nombre_base}%'
+    c.execute('''SELECT * FROM capacidades WHERE nombre LIKE ?
+                 ORDER BY version ASC''', (patron,))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
 # === FUNCIONES DE HORAS Y SESIONES ===
 
 def registrar_sesion(fecha, tipo, descripcion, duracion_min, hora_inicio=None,
@@ -714,14 +822,6 @@ def registrar_comida(fecha, comida, descripcion, del_plan=1, proteina=0, vegetal
     """Registrar una comida. comida: desayuno, almuerzo, merienda, cena, snack."""
     conn = get_connection()
     c = conn.cursor()
-    # Crear tabla si no existe
-    c.execute('''CREATE TABLE IF NOT EXISTS nutricion (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fecha TEXT NOT NULL, comida TEXT NOT NULL, descripcion TEXT NOT NULL,
-        del_plan INTEGER DEFAULT 1, proteina INTEGER DEFAULT 0, vegetales INTEGER DEFAULT 0,
-        agua_litros REAL, suplementos TEXT, notas TEXT,
-        created_at TEXT DEFAULT (datetime('now','localtime'))
-    )''')
     c.execute('''INSERT INTO nutricion (fecha, comida, descripcion, del_plan, proteina, vegetales,
                  agua_litros, suplementos, notas) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
               (fecha, comida.lower(), descripcion, del_plan, proteina, vegetales,

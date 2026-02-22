@@ -127,6 +127,55 @@
 
 ---
 
+## Caso 8: Planificación cross-life y cronograma balanceado (real, ejecutado)
+
+**Usuario:** Desarrollador con múltiples proyectos + vida personal compleja
+**Situación:** Tiene un proyecto de desarrollo pendiente (Bernasconi) pero también licitaciones con deadline, obra en ejecución, cirugía programada, cumpleaños familiar, plan nutricional, y búsqueda laboral pasiva. Necesita saber cuándo puede entregar Bernasconi de forma realista.
+
+### Lo que ARGOS hizo:
+1. Leyó el seguimiento completo de todos los proyectos activos (laborales, personales, desarrollo)
+2. Consultó agenda DB: próximos eventos, deadlines, compromisos
+3. Consultó pendientes activos con prioridades y fechas límite
+4. Incorporó factores personales: cirugía rodilla (~10/03), cumpleaños hijo (26/02), plan nutricional/gym
+5. Cruzó todas las áreas para encontrar horas realmente disponibles por semana
+6. Estimó horas por fase del proyecto (desglose por tarea)
+7. Generó cronograma semana a semana con horas disponibles reales (no teóricas)
+8. Identificó ventanas de oportunidad (ej: post-cirugía = reposo pero podés codear)
+9. Cargó 12 hitos en la agenda DB con fechas objetivo
+10. Proyectó fecha de entrega final: mayo-junio 2026
+
+### Capacidad demostrada:
+- **Planificación cross-life:** no planificó "el proyecto" aislado, sino el proyecto DENTRO de la vida completa del usuario
+- **Balance entre áreas:** trabajo SBD + desarrollo propio + salud + familia + formación
+- **Estimación realista:** no horas ideales, sino horas que sobran después de todas las obligaciones
+- **Portfolio multi-proyecto:** vista unificada de todos los frentes abiertos
+
+**Resultado:** Cronograma de 14 semanas cargado en agenda. Fecha probable de entrega: fin mayo (optimista) a fin junio (realista).
+
+---
+
+## Caso 9: Onboarding de proyecto externo (real, ejecutado)
+
+**Usuario:** Desarrollador que trabaja un proyecto Django fuera de ARGOS
+**Situación:** Tiene un proyecto (Bernasconi App) que desarrolló con Claude Code en otra carpeta. Quiere traer el seguimiento a ARGOS sin mover el código.
+
+### Lo que ARGOS hizo:
+1. Exploró la carpeta del proyecto (CLAUDE.md, README.md, estructura)
+2. Leyó documentos de soporte (.docx de reuniones, notas de trabajo)
+3. Incorporó el proyecto a la DB del tracker (proyecto ID=8)
+4. Creó sección en seguimiento.md con resumen + link al seguimiento detallado
+5. Registró pendientes críticos en la tabla de seguimiento
+6. Definió protocolo de sincronización: "actualizá Bernasconi" lee el archivo externo y carga novedades
+
+### Capacidad demostrada:
+- **ARGOS como capa de seguimiento sobre cualquier proyecto**, sin importar dónde viva el código
+- **Separación datos/código:** el código queda en su carpeta, ARGOS solo gestiona el seguimiento
+- **Sincronización bajo demanda:** el usuario trabaja donde quiere y sincroniza cuando vuelve
+
+**Resultado:** Proyecto integrado en 5 minutos. Seguimiento unificado sin mover archivos.
+
+---
+
 ## Patrón común
 
 En todos los casos, ARGOS sigue el mismo método:

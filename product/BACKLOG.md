@@ -183,6 +183,48 @@ Usuario A tiene un problema → ARGOS le genera un script → funciona
 
 ---
 
+## Planificación y gestión de proyectos
+
+- [x] **P1** Onboarding de proyecto externo — incorporar proyecto a ARGOS sin mover código (Bernasconi = caso real)
+- [x] **P1** Planificación cross-life — cronograma que cruza trabajo + salud + familia + desarrollo para encontrar horas reales
+- [x] **P1** Estimación de esfuerzo por fase — desglose de horas por tarea con totales
+- [x] **P1** Cronograma balanceado — plan semana a semana con horas disponibles reales (no teóricas)
+- [x] **P1** Carga de hitos en agenda DB — milestones de proyecto como eventos planificados
+- [ ] **P1** Portfolio multi-proyecto visual — dashboard con todos los proyectos, estado, % avance, próximo hito
+- [ ] **P2** Sincronización de seguimiento externo — leer archivo .md de otro proyecto y cargar novedades automáticamente
+- [ ] **P2** Alertas de conflicto de agenda — detectar cuando se solapan deadlines de proyectos distintos
+- [ ] **P2** Replanificación automática — si un hito se atrasa, recalcular el resto del cronograma
+- [ ] **P3** Burndown chart — gráfico de avance vs plan por proyecto
+
+## Auto-aprendizaje y mejora continua
+
+- [x] **P0** Tabla patrones en DB — registrar patrones detectados con tipo, categoría, frecuencia, confianza
+- [x] **P0** Motor de detección (tools/patterns.py) — 6 detectores de comportamiento + catálogo de 15 capacidades
+- [x] **P0** Detección de capacidades usadas/nuevas/dormidas — escaneo automático de eventos
+- [x] **P0** Generalización automática de funciones — registrar_funcion_nueva() + sugerir_funciones_para_perfil()
+- [x] **P0** Protocolo de sesión actualizado — reporte_patrones() se ejecuta al inicio de cada sesión
+- [x] **P0** Protocolo de cierre — auto-generalización obligatoria antes de registrar horas
+- [ ] **P1** Sugerencias proactivas en contexto — "La última vez que hiciste X funcionó bien, ¿usamos la misma estructura?"
+- [ ] **P1** Catálogo central de funciones generalizadas — servidor donde se agregan procesos de todos los usuarios
+- [ ] **P1** Distribución de funciones a nuevos usuarios — al abrir sesión, sugerir funciones del catálogo según perfil
+- [ ] **P2** Feedback implícito — registrar si el usuario acepta/ignora/modifica sugerencias
+- [ ] **P2** Métricas de efectividad — tiempo estimado vs real, iteraciones, tasa de éxito
+- [ ] **P2** Versionado de funciones — si un usuario mejora una función generalizada, propagar la mejora
+- [ ] **P3** A/B testing de métodos — probar distintas formas de resolver lo mismo y medir cuál funciona mejor
+
+## Compliance y protección de datos
+
+- [ ] **P1** Política de privacidad — definir qué datos se recolectan, cómo se usan, cómo se protegen
+- [ ] **P1** Consentimiento explícito — opt-in para compartir métricas anónimas de uso
+- [ ] **P1** Encriptación de datos por usuario — cada usuario tiene su key, ni AiControl puede leer sus datos
+- [ ] **P2** Habeas Data (Argentina) — cumplimiento Ley 25.326 de Protección de Datos Personales
+- [ ] **P2** GDPR compliance — para usuarios internacionales (UE)
+- [ ] **P2** Derecho al olvido — el usuario puede pedir borrado total de sus datos
+- [ ] **P2** Auditoría de acceso — log de quién accedió a qué dato y cuándo
+- [ ] **P3** Certificación ISO 27001 — estándar de seguridad de la información (largo plazo)
+
+---
+
 ## Historial de cambios
 | Fecha | Cambio |
 |---|---|
@@ -192,3 +234,10 @@ Usuario A tiene un problema → ARGOS le genera un script → funciona
 | 20/02/2026 | Natalia como usuario #2. Onboarding agendado lunes 23/02 noche. Rol secretario ejecutivo agregado al backlog |
 | 20/02/2026 | Seccion "Definicion de producto" con preguntas abiertas, capacidades core, y diferencial estrategico |
 | 20/02/2026 | Arquitectura cloud: suscripcion gestionada + VM por cliente + dashboard propio + API subcontratada. Backup DB a OneDrive implementado |
+| 22/02/2026 | Nuevas capacidades demostradas: planificación cross-life, cronograma balanceado, onboarding proyecto externo, portfolio multi-proyecto |
+| 22/02/2026 | Secciones nuevas: Planificación y gestión de proyectos, Auto-aprendizaje, Compliance y protección de datos |
+| 22/02/2026 | 7 ideas de arquitectura cloud registradas en tracker DB (VM, DB encriptada, marketplace, independencia LLM, métricas con consentimiento) |
+| 22/02/2026 | Motor auto-aprendizaje implementado: tabla patrones + tools/patterns.py + 6 detectores + catálogo 15 capacidades |
+| 22/02/2026 | Generalización automática: registrar_funcion_nueva(), sugerir_funciones_para_perfil(), 5 perfiles base |
+| 22/02/2026 | ALCANCE.md expandido: 3 niveles de auto-aprendizaje, principio proceso vs data, 16 ejemplos generalizables, moderación ética |
+| 22/02/2026 | Compliance: separación proceso/data, marco legal (Ley 25.326, GDPR, CCPA), moderación ética, capas de protección |
