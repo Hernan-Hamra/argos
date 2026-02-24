@@ -38,7 +38,9 @@ Estado: `[ ]` pendiente, `[x]` hecho, `[~]` en progreso
 
 - [x] **P1** Tracking de horas trabajadas — registrar_sesion(), imprimir_horas()
 - [x] **P1** Tracking de entrenamientos — registrar_entrenamiento(), get_entrenamientos()
+- [x] **P1** Detector coherencia intención/comportamiento — tabla metas + tools/coherencia.py. Cruza metas declaradas con actividad real. Reporte tipo "espejo" (24/02/2026)
 - [ ] **P1** Métricas automáticas — snapshot diario/semanal (tabla metricas existe pero no se usa)
+- [ ] **P1** Reporte de energía/carga mental al cierre — Dr. Neuro sugiere medir carga cognitiva por sesión
 - [ ] **P2** Dashboard visual — gráficos de horas, entrenamientos, pendientes (matplotlib o web)
 - [ ] **P2** Tags en eventos — categorización flexible (tabla tags existe pero no se usa)
 - [ ] **P2** Reportes exportables — PDF/Excel con resumen semanal/mensual
@@ -81,12 +83,13 @@ Estado: `[ ]` pendiente, `[x]` hecho, `[~]` en progreso
 
 ## Producto y comercialización
 
-- [ ] **P0** Onboarding Natalia (usuario #2) — primera sesión lunes 23/02 noche. Definir qué necesita, armar perfil, DB separada o compartida
+- [ ] **P0** Onboarding Natalia (usuario #2) — primera sesión. Definir qué necesita, armar perfil, DB separada o compartida
 - [ ] **P1** Demo grabada — video de 3-5 min mostrando capacidades reales
 - [ ] **P1** Rol "secretario ejecutivo" — ARGOS como asistente que organiza agenda, sigue pendientes, recuerda deadlines, redacta, consulta. Automatizar al máximo.
-- [ ] **P2** Onboarding automatizado — wizard de primera sesión para nuevo usuario
+- [ ] **P1** Onboarding automatizado en 10 preguntas — resultado tangible en 20 min (sugerencia UX Lead)
 - [ ] **P2** Multi-usuario — separar perfiles, cada uno con su DB y memoria
-- [ ] **P3** Pricing model — definir cómo se cobra (suscripción, por uso, por módulo)
+- [ ] **P2** Verticales ligeras (secretario ejecutivo, salud) — Estratega sugiere empezar genérico, verticalizar después
+- [ ] **P3** Pricing model — definir cómo se cobra (suscripción, por uso, por módulo). Estratega: basado en valor medido
 
 ## Comunidad y ecosistema (VISIÓN ESTRATÉGICA)
 
@@ -204,6 +207,8 @@ Usuario A tiene un problema → ARGOS le genera un script → funciona
 - [x] **P0** Generalización automática de funciones — registrar_funcion_nueva() + sugerir_funciones_para_perfil()
 - [x] **P0** Protocolo de sesión actualizado — reporte_patrones() se ejecuta al inicio de cada sesión
 - [x] **P0** Protocolo de cierre — auto-generalización obligatoria antes de registrar horas
+- [x] **P1** Sistema multi-agente — 7 agentes especializados + orquestador + DB (agents/, consultas_agente) (24/02/2026)
+- [x] **P1** Primera consulta real multi-agente — 4 agentes evaluaron estrategia de producto, conclusiones registradas en DB (24/02/2026)
 - [ ] **P1** Sugerencias proactivas en contexto — "La última vez que hiciste X funcionó bien, ¿usamos la misma estructura?"
 - [ ] **P1** Catálogo central de funciones generalizadas — servidor donde se agregan procesos de todos los usuarios
 - [ ] **P1** Distribución de funciones a nuevos usuarios — al abrir sesión, sugerir funciones del catálogo según perfil
@@ -241,3 +246,8 @@ Usuario A tiene un problema → ARGOS le genera un script → funciona
 | 22/02/2026 | Generalización automática: registrar_funcion_nueva(), sugerir_funciones_para_perfil(), 5 perfiles base |
 | 22/02/2026 | ALCANCE.md expandido: 3 niveles de auto-aprendizaje, principio proceso vs data, 16 ejemplos generalizables, moderación ética |
 | 22/02/2026 | Compliance: separación proceso/data, marco legal (Ley 25.326, GDPR, CCPA), moderación ética, capas de protección |
+| 24/02/2026 | Sistema multi-agente: 7 agentes + orquestador + seed + DB (agents/, consultas_agente) |
+| 24/02/2026 | Primera consulta multi-agente: 4 agentes evaluaron estrategia usuario final. Consenso: espejo no coach, agentes invisibles |
+| 24/02/2026 | Detector coherencia intencion/comportamiento: tabla metas + tools/coherencia.py + seed 6 metas Hernan |
+| 24/02/2026 | DECISIONES.md creado con conclusiones de agentes, proximos pasos por tier, alertas eticas |
+| 24/02/2026 | Proximos pasos de agentes registrados: Tier 1 (coherencia HECHO), Tier 2 (onboarding, marco legal, encriptacion), Tier 3 (ML, dashboard, pricing) |

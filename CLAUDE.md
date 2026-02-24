@@ -12,7 +12,7 @@ Desarrollado por y para **Software By Design S.A.**
 - **Apoderado:** Hernán Hamra (DNI 23.505.172)
 
 ## Reglas de trabajo (OBLIGATORIAS)
-1. **NUNCA modificar archivos sin mostrar resultado y pedir confirmación**
+1. **NUNCA modificar archivos sin mostrar resultado y pedir confirmación** — Hernán aprueba TODO antes de que se ejecute. Proponer cambios, esperar visto bueno, recién ahí implementar. Sin excepción.
 2. **Solo trabajar sobre lo explícitamente indicado**
 3. **No agregar más de lo que dice el pliego** - no inventar requisitos
 4. **No fabricar datasheets** - solo datos reales de fabricante

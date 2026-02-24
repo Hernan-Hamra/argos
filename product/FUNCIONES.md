@@ -1,5 +1,5 @@
 # ARGOS - Catálogo de Funciones
-*Generado desde DB sistema | 32 capacidades | 22 de febrero de 2026*
+*Generado desde DB sistema | 35 capacidades | 24 de febrero de 2026*
 
 ---
 
@@ -7,9 +7,9 @@
 
 | Tipo | Cantidad | Descripción |
 |------|----------|-------------|
-| **CON TOOL** | 20 | Usa scripts Python, librerías o APIs dedicadas |
+| **CON TOOL** | 23 | Usa scripts Python, librerías o APIs dedicadas |
 | **SIN TOOL (LLM)** | 12 | El LLM resuelve directo sin script — análisis, redacción, estrategia |
-| **Total** | **32** | Catálogo dinámico — crece con cada interacción exitosa |
+| **Total** | **35** | Catálogo dinámico — crece con cada interacción exitosa |
 
 ---
 
@@ -316,7 +316,23 @@
 
 ---
 
-## 6. SALUD (1 función)
+## 6. COHERENCIA Y METAS (1 función)
+
+### 6.1 Detector de coherencia intención/comportamiento — CON TOOL
+- **Herramienta:** `tools/coherencia.py`
+- **Protocolo:**
+  1. Leer metas activas del usuario (tabla metas)
+  2. Cruzar con actividad real (eventos por proyecto, horas, pendientes)
+  3. Calcular coherencia (0.0 a 1.0) por meta
+  4. Clasificar: on_track, en_riesgo, desalineada, abandonada
+  5. Generar reporte tipo "espejo" (descriptivo, sin juicio)
+- **Cuándo se usa:** Semanal al inicio de sesión, o a pedido del usuario
+- **Perfiles:** todos
+- **REGLA:** El reporte es descriptivo, no prescriptivo. Muestra datos, no dice qué hacer.
+
+---
+
+## 7. SALUD (1 función)
 
 ### 6.1 Seguimiento nutricional — CON TOOL
 - **Herramienta:** `tools/tracker.py::registrar_comida`
@@ -329,9 +345,20 @@
 
 ---
 
-## 7. SISTEMA (2 funciones)
+## 8. SISTEMA (3 funciones)
 
-### 7.1 Backup automático — CON TOOL
+### 8.1 Sistema multi-agente — CON TOOL
+- **Herramienta:** `agents/orquestador.py` + `agents/*.md`
+- **Protocolo:**
+  1. Evaluar triggers según contexto de sesión (momento, tema, flags)
+  2. Activar agentes relevantes (neuro, comercial, arquitecto, data, ux, etico, dba)
+  3. Cargar prompt especializado (.md) + historial de consultas
+  4. Registrar resultado en DB (consultas_agente)
+  5. Mostrar panel_agentes() al inicio de sesión
+- **Cuándo se usa:** Apertura (panel), durante (triggers), cierre (neuro + data)
+- **Perfiles:** desarrollo ARGOS (interno)
+
+### 8.2 Backup automático — CON TOOL
 - **Herramienta:** `tools/backup.py`
 - **Protocolo:**
   1. Copiar DBs a OneDrive
@@ -344,7 +371,7 @@
 - **Cuándo se usa:** Al cierre de cada sesión (obligatorio)
 - **Perfiles:** todos
 
-### 7.2 Creación de estructura de carpetas — SIN TOOL
+### 8.3 Creación de estructura de carpetas — SIN TOOL
 - **Herramienta:** LLM + bash/python (os.makedirs)
 - **Protocolo por plataforma:**
   - **Windows:** Diseñar → Crear con os.makedirs() → Verificar en OneDrive
@@ -355,9 +382,9 @@
 
 ---
 
-## 8. FINANZAS (1 función)
+## 9. FINANZAS (1 función)
 
-### 8.1 Control de gastos familiares — CON TOOL
+### 9.1 Control de gastos familiares — CON TOOL
 - **Herramienta:** `tools/tracker.py` + nuevo módulo
 - **Protocolo:**
   1. Definir categorías de gasto
@@ -382,7 +409,9 @@
 | `tools/backup.py` | Backup |
 | `tools/telegram_bot.py` | Bot Telegram |
 | `tools/patterns.py` | Auto-aprendizaje (detección patrones) |
+| `tools/coherencia.py` | Detector coherencia intención/comportamiento |
 | `tools/db_manager.py` | Gestión DBs sistema/usuario |
+| `agents/orquestador.py` | Sistema multi-agente (7 agentes) |
 
 ### Librerías externas
 | Librería | Funciones que la usan |

@@ -144,6 +144,60 @@ def init_db():
         updated_at TEXT DEFAULT (datetime('now','localtime'))
     )''')
 
+    # === METAS (intenciones declaradas) ===
+
+    c.execute('''CREATE TABLE IF NOT EXISTS metas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        descripcion TEXT NOT NULL,
+        area TEXT NOT NULL,
+        proyecto_id INTEGER,
+        prioridad TEXT DEFAULT 'media',
+        fecha_objetivo TEXT,
+        horas_semana_meta REAL,
+        indicador TEXT DEFAULT 'horas',
+        estado TEXT DEFAULT 'activa',
+        notas TEXT,
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        FOREIGN KEY (proyecto_id) REFERENCES proyectos(id)
+    )''')
+
+    # === SISTEMA MULTI-AGENTE ===
+
+    c.execute('''CREATE TABLE IF NOT EXISTS agentes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        codigo TEXT UNIQUE NOT NULL,
+        nombre TEXT NOT NULL,
+        descripcion TEXT,
+        estado TEXT DEFAULT 'activo',
+        prompt_file TEXT,
+        capacidades TEXT,
+        triggers TEXT,
+        fecha_creacion TEXT DEFAULT (date('now','localtime')),
+        created_at TEXT DEFAULT (datetime('now','localtime'))
+    )''')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS consultas_agente (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        agente_id INTEGER NOT NULL,
+        fecha TEXT NOT NULL,
+        hora TEXT,
+        tipo TEXT,
+        contexto TEXT,
+        resultado TEXT,
+        confianza REAL DEFAULT 0.8,
+        aceptado INTEGER DEFAULT NULL,
+        evento_id INTEGER,
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        FOREIGN KEY (agente_id) REFERENCES agentes(id),
+        FOREIGN KEY (evento_id) REFERENCES eventos(id)
+    )''')
+
+    # Agregar agente_id a eventos si no existe
+    try:
+        c.execute("ALTER TABLE eventos ADD COLUMN agente_id INTEGER REFERENCES agentes(id)")
+    except sqlite3.OperationalError:
+        pass  # Columna ya existe
+
     conn.commit()
     conn.close()
     print(f"DB inicializada en: {os.path.abspath(DB_PATH)}")
@@ -972,6 +1026,173 @@ def imprimir_plan():
     print(f"  ORDEN: vegetales -> proteina -> hidratos. Fruta de postre, nunca antes.")
     print(f"  POST-COMIDA: 10 min caminata (baja glucemia)")
     print(f"{'='*55}\n")
+
+
+# === METAS ===
+
+def add_meta(descripcion, area, proyecto_id=None, prioridad='media',
+             fecha_objetivo=None, horas_semana_meta=None, indicador='horas',
+             notas=None):
+    """Registrar una meta/intención declarada."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('''INSERT INTO metas (descripcion, area, proyecto_id, prioridad,
+                 fecha_objetivo, horas_semana_meta, indicador, notas)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+              (descripcion, area, proyecto_id, prioridad,
+               fecha_objetivo, horas_semana_meta, indicador, notas))
+    mid = c.lastrowid
+    conn.commit()
+    conn.close()
+    return mid
+
+
+def get_metas(solo_activas=True):
+    """Listar metas. Incluye nombre del proyecto si tiene proyecto_id."""
+    conn = get_connection()
+    c = conn.cursor()
+    query = '''SELECT m.*, p.nombre as proyecto_nombre
+               FROM metas m
+               LEFT JOIN proyectos p ON m.proyecto_id = p.id'''
+    if solo_activas:
+        query += " WHERE m.estado = 'activa'"
+    query += " ORDER BY CASE m.prioridad WHEN 'alta' THEN 1 WHEN 'media' THEN 2 ELSE 3 END"
+    c.execute(query)
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
+def update_meta(meta_id, **kwargs):
+    """Actualizar campos de una meta. Acepta cualquier campo válido."""
+    campos_validos = {'descripcion', 'area', 'proyecto_id', 'prioridad',
+                      'fecha_objetivo', 'horas_semana_meta', 'indicador',
+                      'estado', 'notas'}
+    updates = {k: v for k, v in kwargs.items() if k in campos_validos}
+    if not updates:
+        return False
+    conn = get_connection()
+    c = conn.cursor()
+    set_clause = ', '.join(f"{k} = ?" for k in updates)
+    values = list(updates.values()) + [meta_id]
+    c.execute(f"UPDATE metas SET {set_clause} WHERE id = ?", values)
+    conn.commit()
+    affected = c.rowcount
+    conn.close()
+    return affected > 0
+
+
+# === SISTEMA MULTI-AGENTE ===
+
+def add_agente(codigo, nombre, descripcion=None, prompt_file=None,
+               capacidades=None, triggers=None):
+    """Registrar un agente en el sistema."""
+    import json as _json
+    conn = get_connection()
+    c = conn.cursor()
+    if isinstance(capacidades, list):
+        capacidades = _json.dumps(capacidades, ensure_ascii=False)
+    if isinstance(triggers, list):
+        triggers = _json.dumps(triggers, ensure_ascii=False)
+    c.execute('''INSERT OR IGNORE INTO agentes (codigo, nombre, descripcion,
+                 prompt_file, capacidades, triggers)
+                 VALUES (?, ?, ?, ?, ?, ?)''',
+              (codigo, nombre, descripcion, prompt_file, capacidades, triggers))
+    aid = c.lastrowid
+    conn.commit()
+    conn.close()
+    return aid
+
+
+def get_agentes(solo_activos=True):
+    """Listar agentes registrados."""
+    conn = get_connection()
+    c = conn.cursor()
+    if solo_activos:
+        c.execute("SELECT * FROM agentes WHERE estado = 'activo' ORDER BY id")
+    else:
+        c.execute("SELECT * FROM agentes ORDER BY id")
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
+def get_agente(codigo):
+    """Obtener un agente por su código."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT * FROM agentes WHERE codigo = ?", (codigo,))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def registrar_consulta_agente(agente_codigo, tipo, contexto, resultado,
+                               confianza=0.8, evento_id=None):
+    """Registrar una intervención/consulta de un agente."""
+    conn = get_connection()
+    c = conn.cursor()
+    # Buscar agente_id por código
+    c.execute("SELECT id FROM agentes WHERE codigo = ?", (agente_codigo,))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return None
+    agente_id = row['id']
+    hora = datetime.now().strftime('%H:%M')
+    fecha = date.today().isoformat()
+    c.execute('''INSERT INTO consultas_agente (agente_id, fecha, hora, tipo,
+                 contexto, resultado, confianza, evento_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+              (agente_id, fecha, hora, tipo, contexto, resultado, confianza, evento_id))
+    cid = c.lastrowid
+    conn.commit()
+    conn.close()
+    return cid
+
+
+def get_consultas_agente(agente_codigo, fecha_desde=None, limit=20):
+    """Obtener últimas consultas de un agente."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT id FROM agentes WHERE codigo = ?", (agente_codigo,))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return []
+    agente_id = row['id']
+    if fecha_desde:
+        c.execute('''SELECT * FROM consultas_agente
+                     WHERE agente_id = ? AND fecha >= ?
+                     ORDER BY fecha DESC, hora DESC LIMIT ?''',
+                  (agente_id, fecha_desde, limit))
+    else:
+        c.execute('''SELECT * FROM consultas_agente
+                     WHERE agente_id = ?
+                     ORDER BY fecha DESC, hora DESC LIMIT ?''',
+                  (agente_id, limit))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
+def get_resumen_agentes():
+    """Resumen de actividad de todos los agentes: consultas, aceptación, última actividad."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('''SELECT a.codigo, a.nombre, a.estado,
+                 COUNT(ca.id) as total_consultas,
+                 SUM(CASE WHEN ca.aceptado = 1 THEN 1 ELSE 0 END) as aceptadas,
+                 SUM(CASE WHEN ca.aceptado = 0 THEN 1 ELSE 0 END) as rechazadas,
+                 MAX(ca.fecha || ' ' || COALESCE(ca.hora, '')) as ultima_actividad
+                 FROM agentes a
+                 LEFT JOIN consultas_agente ca ON a.id = ca.agente_id
+                 WHERE a.estado = 'activo'
+                 GROUP BY a.id
+                 ORDER BY a.id''')
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
 
 
 # === MIGRACIÓN DESDE SEGUIMIENTO.MD ===

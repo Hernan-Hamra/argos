@@ -15,6 +15,8 @@ APERTURA → AGENDA → CHAT → REGISTRO → DEVOLUCIÓN → AGENDA CIERRE → 
 - Saludar por nombre
 - Leer DB: alertas, deadlines, vencidos
 - Mostrar alertas y seguimiento (tipo C)
+- Ejecutar `reporte_patrones()` — capacidades nuevas, dormidas, sugerencias
+- Ejecutar `panel_agentes()` — estado del equipo multi-agente, sugerencias pendientes
 - Mostrar agenda pendiente del día
 - Preguntar: "¿En qué querés trabajar?"
 
@@ -35,8 +37,15 @@ APERTURA → AGENDA → CHAT → REGISTRO → DEVOLUCIÓN → AGENDA CIERRE → 
 - Cada nuevo pendiente → crear en seguimiento con deadline
 - Cada comunicación → registrar fuente + resultado
 
+### Paso 4b: AGENTES (automático, durante sesión)
+- El orquestador evalúa triggers en segundo plano
+- Si el tema es estrategia → acumula para Estratega
+- Si hay datos sensibles → acumula para Ético
+- Si hay cambio de schema → acumula para DBA + Arquitecto
+- Los agentes se activan explícitamente al cierre o cuando el usuario consulta
+
 ### Paso 5: DEVOLUCIÓN (al cerrar sesión)
-6 tipos de devolución:
+7 tipos de devolución (6 originales + panel de agentes):
 
 | Tipo | Qué es | Cuándo |
 |------|--------|--------|

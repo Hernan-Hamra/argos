@@ -9,7 +9,7 @@ ARGOS es un asistente personal con IA que te conoce, te organiza, te asesora, te
 
 ---
 
-## Alcance completo (37 capacidades)
+## Alcance completo (44 capacidades)
 
 ### Arquitectura y autonomía
 1. **Sistema autónomo** — funciona de forma independiente, se adapta al usuario sin intervención del creador
@@ -245,11 +245,22 @@ Cada una de estas es una interacción real que UN usuario tuvo con ARGOS. Si fun
 - **AiControl no modera contenido** — no leemos las interacciones de los usuarios. El filtro ético es del motor IA. AiControl solo ve métricas anónimas de bloqueos.
 - **Capas de protección:** 1) Filtro del LLM → 2) No generalización → 3) Registro anónimo → 4) Suspensión si reiterado
 
+### Coherencia y auto-conocimiento (24/02/2026)
+25. **Detector de coherencia intención/comportamiento** — cruza metas declaradas con actividad real. Reporte tipo "espejo" (tools/coherencia.py)
+26. **Tabla de metas** — intenciones declaradas con área, proyecto, prioridad, horas/semana meta (tabla metas en tracker.py)
+27. **Señales de coherencia** — on_track, en_riesgo, desalineada, abandonada. Sin juicio, solo datos.
+
+### Sistema multi-agente (24/02/2026)
+28. **7 agentes especializados** — Neuro, Comercial, Arquitecto, Data, UX, Etico, DBA (agents/*.md)
+29. **Orquestador** — decide qué agentes activar según contexto de sesión (agents/orquestador.py)
+30. **Registro de consultas** — cada intervención de agente queda en DB con resultado, confianza y aceptación
+31. **Decisiones estratégicas documentadas** — product/DECISIONES.md con consenso de agentes
+
 ### Módulos especializados (futuros)
-25. **Entrenamiento físico** — planes de entrenamiento, seguimiento de actividad, métricas deportivas (tipo Tup)
-26. **Nutrición** — planes alimentarios, lista de compras, seguimiento de dieta, presupuesto
-27. **Profesor / tutor** — charlas específicas sobre cualquier tema, explicaciones adaptadas al nivel del usuario
-28. **Salud** — turnos médicos, estudios, tratamientos, seguimiento de evolución
+32. **Entrenamiento físico** — planes de entrenamiento, seguimiento de actividad, métricas deportivas (tipo Tup)
+33. **Nutrición** — planes alimentarios, lista de compras, seguimiento de dieta, presupuesto
+34. **Profesor / tutor** — charlas específicas sobre cualquier tema, explicaciones adaptadas al nivel del usuario
+35. **Salud** — turnos médicos, estudios, tratamientos, seguimiento de evolución
 
 ---
 
@@ -271,6 +282,9 @@ Cada una de estas es una interacción real que UN usuario tuvo con ARGOS. Si fun
 | Planificación cross-life | Cronograma Bernasconi: 14 semanas, cruzando 5 áreas de vida |
 | Portfolio multi-proyecto | Vista unificada: Posadas + SBASE + Bernasconi + AiControl + salud |
 | Onboarding externo | Bernasconi incorporado a ARGOS en 5 min sin mover código |
+| Sistema multi-agente | 7 agentes evaluaron estrategia de producto, consenso registrado en DB |
+| Detector coherencia | Primer reporte real: 6 metas, coherencia promedio 0.29, 3 abandonadas detectadas |
+| Decisiones documentadas | DECISIONES.md con conclusiones de agentes, tiers de próximos pasos |
 
 ---
 

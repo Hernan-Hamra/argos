@@ -225,5 +225,78 @@ El motor está en `tools/patterns.py`. El catálogo en la tabla `capacidades`. L
 
 ---
 
+## Sistema Multi-Agente
+
+ARGOS cuenta con un equipo de 7 agentes especializados que operan sobre la misma DB
+y aportan perspectivas distintas al desarrollo y uso del producto.
+
+### Los 7 agentes
+
+| Código | Nombre | Rol | Cuándo se activa |
+|--------|--------|-----|-----------------|
+| `neuro` | Dr. Neuro | Análisis de lenguaje, cognición, carga mental | Cierre de sesión, señales de estrés |
+| `comercial` | Estratega | Negocio, pricing, competencia, go-to-market | Función nueva, temas de estrategia |
+| `arquitecto` | Arquitecto | Diseño técnico, viabilidad, integración | Propuestas técnicas, cambios de schema |
+| `data` | Data Engineer | Métricas, predicción, ML, auto-mejora | Cierre de sesión, pedidos de métricas |
+| `ux` | UX Lead | Experiencia de usuario, onboarding, flujos | Función nueva, temas de interfaz |
+| `etico` | Ético | Privacidad, confianza, compliance | Datos sensibles, exportación |
+| `dba` | DBA | Schema, queries, migraciones, integridad | Cambios de schema, review mensual |
+
+### Cómo funcionan
+
+Los agentes son prompts especializados en `agents/*.md` que se invocan como subagentes
+de Claude Code. No son procesos separados — son perspectivas especializadas.
+
+El orquestador (`agents/orquestador.py`) decide cuándo activar cada agente según
+el contexto de la sesión: tema, momento (apertura/durante/cierre), y triggers específicos.
+
+### Integración con el flujo de sesión
+
+- **Apertura**: después de `reporte_patrones()`, ejecutar `panel_agentes()` para mostrar estado del equipo
+- **Durante**: el orquestador evalúa triggers pasivamente (no interrumpe, acumula)
+- **Cierre**: activar Dr. Neuro (análisis lenguaje) + Data Engineer (métricas sesión)
+
+### DB
+
+- Tabla `agentes`: definición de cada agente (código, nombre, capacidades, triggers)
+- Tabla `consultas_agente`: log de intervenciones con tipo, resultado, confianza y aceptación
+- Campo `agente_id` en `eventos`: para saber qué agente generó cada evento
+
+### Decisiones estrategicas de agentes (24/02/2026)
+
+Consenso de 4 agentes (Neuro, Comercial, UX, Etico):
+- **ARGOS es espejo, no coach.** Muestra patrones, no empuja cambio.
+- **Agentes invisibles para el usuario.** El usuario habla con ARGOS, no con agentes individuales.
+- **Metodo generico + contexto profundo = el producto.** No necesitamos especialistas visibles.
+- Detalle completo en `product/DECISIONES.md`.
+
+---
+
+## Detector de Coherencia
+
+ARGOS puede cruzar las metas declaradas del usuario con su actividad real, generando
+un reporte tipo "espejo" que muestra donde hay alineacion y donde hay desconexion.
+
+### Como funciona
+
+- Tabla `metas` en tracker.py: intenciones declaradas (area, proyecto, prioridad, horas/semana meta)
+- `tools/coherencia.py`: cruza metas con eventos reales del periodo
+- Clasificacion: on_track (>=0.7), en_riesgo (0.3-0.7), desalineada (<0.3), abandonada (<0.1)
+- Penalizacion por pendientes vencidos
+
+### Uso
+
+- **Semanal:** ejecutar `reporte_coherencia()` al inicio de la primera sesion de la semana
+- **A pedido:** cuando el usuario pregunta "como voy?" o similar
+- **El reporte es descriptivo, no prescriptivo** — muestra numeros, no dice que hacer
+
+### DB
+
+- Tabla `metas`: descripcion, area, proyecto_id, prioridad, horas_semana_meta, indicador, estado
+- Funciones: `add_meta()`, `get_metas()`, `update_meta()` en tracker.py
+- Medicion: `medir_coherencia_meta()`, `reporte_coherencia()` en coherencia.py
+
+---
+
 *Este prompt se lee al inicio de cada sesión. Es la identidad de ARGOS.*
-*Versión: 1.0 | Fecha: 22 de febrero de 2026*
+*Versión: 1.2 | Fecha: 24 de febrero de 2026*
