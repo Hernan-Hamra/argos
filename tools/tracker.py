@@ -43,6 +43,8 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nombre TEXT NOT NULL, relacion TEXT, empresa TEXT, contacto TEXT,
         notas TEXT, perfil_comportamiento TEXT,
+        dni TEXT, cuit TEXT, fecha_nacimiento TEXT, lugar_nacimiento TEXT,
+        domicilio TEXT, cargo TEXT, estado_civil TEXT, nacionalidad TEXT, sexo TEXT,
         created_at TEXT DEFAULT (datetime('now','localtime'))
     )''')
 
@@ -144,6 +146,17 @@ def init_db():
         updated_at TEXT DEFAULT (datetime('now','localtime'))
     )''')
 
+    # === DATOS EMPRESA (info corporativa para formularios) ===
+
+    c.execute('''CREATE TABLE IF NOT EXISTS empresa_datos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        campo TEXT NOT NULL,
+        valor TEXT NOT NULL,
+        categoria TEXT DEFAULT 'general',
+        notas TEXT,
+        created_at TEXT DEFAULT (datetime('now','localtime'))
+    )''')
+
     # === METAS (intenciones declaradas) ===
 
     c.execute('''CREATE TABLE IF NOT EXISTS metas (
@@ -197,6 +210,28 @@ def init_db():
         c.execute("ALTER TABLE eventos ADD COLUMN agente_id INTEGER REFERENCES agentes(id)")
     except sqlite3.OperationalError:
         pass  # Columna ya existe
+
+    c.execute('''CREATE TABLE IF NOT EXISTS bienestar (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha TEXT NOT NULL,
+        persona_id INTEGER DEFAULT 12,
+        humor INTEGER,                   -- 1-10 (1=pésimo, 10=excelente)
+        energia INTEGER,                 -- 1-10
+        estres INTEGER,                  -- 1-10 (10=máximo estrés)
+        horas_sueno REAL,                -- horas dormidas
+        calidad_sueno INTEGER,           -- 1-5 (1=pésima, 5=excelente)
+        atencion_familia INTEGER,        -- 1-5 (1=nula, 5=plena)
+        ejercicio_min INTEGER DEFAULT 0, -- minutos de ejercicio
+        intensidad_laboral INTEGER,      -- 1-10 (calculado: tareas + interlocutores + presión)
+        intensidad_personal INTEGER,     -- 1-10 (carga emocional, temas personales)
+        interlocutores INTEGER,          -- cantidad de personas con las que habló
+        tareas_contadas INTEGER,         -- tareas registradas en el día
+        conflictos TEXT,                 -- descripción breve de conflictos del día
+        logros TEXT,                     -- qué salió bien
+        frustraciones TEXT,              -- qué generó frustración
+        notas TEXT,
+        created_at TEXT DEFAULT (datetime('now','localtime'))
+    )''')
 
     conn.commit()
     conn.close()
@@ -1193,6 +1228,119 @@ def get_resumen_agentes():
     rows = [dict(r) for r in c.fetchall()]
     conn.close()
     return rows
+
+
+# === BIENESTAR DIARIO ===
+
+def add_bienestar(fecha, humor=None, energia=None, estres=None,
+                  horas_sueno=None, calidad_sueno=None, atencion_familia=None,
+                  ejercicio_min=0, intensidad_laboral=None, intensidad_personal=None,
+                  interlocutores=None, tareas_contadas=None,
+                  conflictos=None, logros=None, frustraciones=None, notas=None):
+    """Registrar bienestar diario. Escalas: humor/energia/estres/intensidad 1-10, sueño/familia 1-5."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('''INSERT INTO bienestar (fecha, humor, energia, estres, horas_sueno,
+                 calidad_sueno, atencion_familia, ejercicio_min,
+                 intensidad_laboral, intensidad_personal,
+                 interlocutores, tareas_contadas,
+                 conflictos, logros, frustraciones, notas)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+              (fecha, humor, energia, estres, horas_sueno, calidad_sueno,
+               atencion_familia, ejercicio_min, intensidad_laboral, intensidad_personal,
+               interlocutores, tareas_contadas, conflictos, logros, frustraciones, notas))
+    bid = c.lastrowid
+    conn.commit()
+    conn.close()
+    return bid
+
+
+def get_bienestar_periodo(fecha_desde=None, fecha_hasta=None):
+    """Obtener registros de bienestar en un período."""
+    conn = get_connection()
+    c = conn.cursor()
+    if fecha_desde is None:
+        from datetime import timedelta
+        fecha_desde = (date.today() - timedelta(days=30)).isoformat()
+    if fecha_hasta is None:
+        fecha_hasta = date.today().isoformat()
+    c.execute('''SELECT * FROM bienestar
+                 WHERE fecha BETWEEN ? AND ?
+                 ORDER BY fecha ASC''', (fecha_desde, fecha_hasta))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
+def reporte_bienestar(fecha_desde=None, dias=7):
+    """Reporte de bienestar con tendencias y correlaciones."""
+    if fecha_desde is None:
+        from datetime import timedelta
+        fecha_desde = (date.today() - timedelta(days=dias)).isoformat()
+
+    registros = get_bienestar_periodo(fecha_desde)
+
+    if not registros:
+        print("Sin registros de bienestar en el período.")
+        print("Usar: add_bienestar(fecha, humor=X, energia=X, ...)")
+        return []
+
+    print(f"\n{'='*65}")
+    print(f"  BIENESTAR | {fecha_desde} a hoy ({len(registros)} días)")
+    print(f"{'='*65}")
+    print(f"  {'FECHA':12s} {'HUM':4s} {'ENE':4s} {'EST':4s} {'SUE':5s} {'FAM':4s} {'I.LAB':5s} {'I.PER':5s} {'INTER':5s}")
+    print(f"  {'-'*60}")
+
+    sum_humor = sum_energia = sum_estres = sum_sueno = sum_familia = 0
+    sum_ilab = sum_iper = count = 0
+
+    for r in registros:
+        h = f"{r['humor']}" if r['humor'] else '-'
+        e = f"{r['energia']}" if r['energia'] else '-'
+        s = f"{r['estres']}" if r['estres'] else '-'
+        sue = f"{r['horas_sueno']:.1f}" if r['horas_sueno'] else '-'
+        fam = f"{r['atencion_familia']}" if r['atencion_familia'] else '-'
+        il = f"{r['intensidad_laboral']}" if r['intensidad_laboral'] else '-'
+        ip = f"{r['intensidad_personal']}" if r['intensidad_personal'] else '-'
+        inter = f"{r['interlocutores']}" if r['interlocutores'] else '-'
+
+        print(f"  {r['fecha']:12s} {h:4s} {e:4s} {s:4s} {sue:5s} {fam:4s} {il:5s} {ip:5s} {inter:5s}")
+
+        if r['conflictos']:
+            print(f"{'':14s} Conflictos: {r['conflictos']}")
+        if r['frustraciones']:
+            print(f"{'':14s} Frustraciones: {r['frustraciones']}")
+        if r['logros']:
+            print(f"{'':14s} Logros: {r['logros']}")
+
+        # Acumular para promedios
+        if r['humor']: sum_humor += r['humor']; count += 1
+        if r['energia']: sum_energia += r['energia']
+        if r['estres']: sum_estres += r['estres']
+        if r['horas_sueno']: sum_sueno += r['horas_sueno']
+        if r['atencion_familia']: sum_familia += r['atencion_familia']
+        if r['intensidad_laboral']: sum_ilab += r['intensidad_laboral']
+        if r['intensidad_personal']: sum_iper += r['intensidad_personal']
+
+    if count > 0:
+        print(f"\n  --- Promedios ({count} días) ---")
+        print(f"  Humor: {sum_humor/count:.1f}/10 | Energía: {sum_energia/count:.1f}/10 | Estrés: {sum_estres/count:.1f}/10")
+        if sum_sueno > 0:
+            print(f"  Sueño: {sum_sueno/count:.1f}hs | Familia: {sum_familia/count:.1f}/5")
+        if sum_ilab > 0:
+            print(f"  Intensidad laboral: {sum_ilab/count:.1f}/10 | Personal: {sum_iper/count:.1f}/10")
+
+        # Detectar patrones
+        print(f"\n  --- Patrones ---")
+        if sum_ilab/count >= 8 and sum_familia/count <= 2:
+            print(f"  !! Alta carga laboral + baja atención familiar")
+        if sum_estres/count >= 7 and sum_sueno/count < 7:
+            print(f"  !! Alto estrés + poco sueño")
+        if sum_humor/count <= 4:
+            print(f"  !! Humor bajo sostenido — revisar causas")
+
+    print(f"{'='*65}\n")
+    return registros
 
 
 # === MIGRACIÓN DESDE SEGUIMIENTO.MD ===
