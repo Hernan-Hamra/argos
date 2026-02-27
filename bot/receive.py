@@ -44,11 +44,13 @@ def get_updates(mark_read=True):
         msg = update.get("message", {})
         chat_id = msg.get("chat", {}).get("id")
         from_user = msg.get("from", {}).get("first_name", "?")
+        user_id = msg.get("from", {}).get("id")
         update_id = update["update_id"]
 
         entry = {
             "update_id": update_id,
             "chat_id": chat_id,
+            "user_id": user_id,
             "from": from_user,
             "date": msg.get("date"),
         }

@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from bot.receive import get_updates, download_voice
 from bot.send import send_text
 from bot.bridge import escribir_mensaje
-from bot.config import ALLOWED_CHAT_ID
+from bot.config import ALLOWED_CHAT_ID, ALLOWED_USER_IDS
 
 # Whisper se carga lazy (tarda ~10seg primera vez)
 _stt_loaded = False
@@ -67,9 +67,14 @@ def _save_to_db(tipo, contenido, transcripcion=None):
 def process_message(msg):
     """Procesar un mensaje de Telegram."""
     chat_id = msg.get('chat_id')
+    user_id = msg.get('user_id')
 
-    # Seguridad: solo procesar mensajes del chat autorizado
-    if str(chat_id) != str(ALLOWED_CHAT_ID):
+    # Seguridad: solo procesar mensajes de usuarios autorizados
+    if ALLOWED_USER_IDS and str(user_id) not in ALLOWED_USER_IDS:
+        print(f"[LOOP] Mensaje RECHAZADO de user_id={user_id} (no autorizado)")
+        return
+    # Fallback legacy: si no hay ALLOWED_USER_IDS, usar ALLOWED_CHAT_ID
+    if not ALLOWED_USER_IDS and str(chat_id) != str(ALLOWED_CHAT_ID):
         print(f"[LOOP] Mensaje ignorado de chat_id={chat_id} (no autorizado)")
         return
 
@@ -109,7 +114,10 @@ def process_message(msg):
 def run_loop(interval=10):
     """Loop principal de polling."""
     print(f"[LOOP] ARGOS Bot escuchando (cada {interval}s)...")
-    print(f"[LOOP] Chat autorizado: {ALLOWED_CHAT_ID}")
+    if ALLOWED_USER_IDS:
+        print(f"[LOOP] Usuarios autorizados: {ALLOWED_USER_IDS}")
+    else:
+        print(f"[LOOP] Chat autorizado (legacy): {ALLOWED_CHAT_ID}")
     print(f"[LOOP] Ctrl+C para detener")
 
     escribir_mensaje('system', 'Loop iniciado - escuchando Telegram', tipo='system')

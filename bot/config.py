@@ -4,7 +4,12 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-ALLOWED_CHAT_ID = os.getenv('ALLOWED_CHAT_ID')  # Se obtiene en primer uso
+ALLOWED_CHAT_ID = os.getenv('ALLOWED_CHAT_ID')  # Legacy, mantener por compatibilidad
+
+# Seguridad: lista de user_ids de Telegram autorizados
+# Cada usuario de ARGOS registra su user_id. Solo ellos pueden hablar con el bot.
+_raw_ids = os.getenv('ALLOWED_USER_IDS', '')
+ALLOWED_USER_IDS = [uid.strip() for uid in _raw_ids.split(',') if uid.strip()]
 
 # TTS
 TTS_VOICE = "es-AR-TomasNeural"
