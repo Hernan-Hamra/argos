@@ -1,0 +1,290 @@
+[
+  {
+    "tipo": "protocolo_asesor",
+    "categoria": "capacidad",
+    "descripcion": "Redaccion de mensajes (WhatsApp, email, carta)",
+    "evidencia": "Input: situacion + interlocutor + objetivo + tono. Output: mensaje listo para enviar. El usuario tiene la ultima palabra",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_asesor",
+    "categoria": "capacidad",
+    "descripcion": "Analisis de situaciones laborales/personales",
+    "evidencia": "Input: contexto DB + evidencia. Output: opinion honesta + recomendacion. No ser condescendiente",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_asesor",
+    "categoria": "capacidad",
+    "descripcion": "Construccion de casos con evidencia",
+    "evidencia": "Input: fuentes (chats, archivos, emails). Output: informe con timeline verificable. Solo datos reales",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_asesor",
+    "categoria": "capacidad",
+    "descripcion": "Seguimiento de reclamos y gestiones",
+    "evidencia": "Input: accion + plazos + interlocutor. Registrar en seguimiento, alertar en proxima sesion",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_asesor",
+    "categoria": "flujo",
+    "descripcion": "Fase 1: Recopilar evidencia antes de asesorar",
+    "evidencia": "Parsear chats WhatsApp, scan filesystem timestamps, cruzar fuentes en timeline verificable",
+    "sugerencia": "Siempre recopilar evidencia ANTES de opinar",
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_asesor",
+    "categoria": "flujo",
+    "descripcion": "Fase 2: Analizar situacion con contexto completo",
+    "evidencia": "Consultar perfil_datos + personas + seguimiento. Identificar dinamicas de poder, evaluar posicion, detectar riesgos",
+    "sugerencia": "No opinar sin leer contexto completo primero",
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_asesor",
+    "categoria": "flujo",
+    "descripcion": "Fase 3: Asesorar con opinion honesta",
+    "evidencia": "Sin condescendencia. Analisis de dinamicas de poder. Recomendar activamente (afirmar, no pedir). Descartar opciones riesgosas",
+    "sugerencia": "Llamar las cosas por su nombre",
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_asesor",
+    "categoria": "flujo",
+    "descripcion": "Fase 4: Redactar comunicacion calibrada",
+    "evidencia": "Tono calibrado al interlocutor. Iterar con usuario. Tecnicas: afirmar no pedir, monto explicito, urgencia sin amenaza, amplitud sin detalle",
+    "sugerencia": "El usuario aprueba la version final",
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_asesor",
+    "categoria": "principio",
+    "descripcion": "Honestidad brutal cuando se pide",
+    "evidencia": "Si el usuario dice 'no seas condescendiente', ir directo",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_asesor",
+    "categoria": "principio",
+    "descripcion": "Respetar agencia del usuario",
+    "evidencia": "ARGOS asesora, el usuario decide. Nunca tomar decisiones por el",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_asesor",
+    "categoria": "principio",
+    "descripcion": "Nunca fabricar datos ni evidencia",
+    "evidencia": "Ni datos, ni evidencia, ni argumentos sin base real",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_asesor",
+    "categoria": "principio",
+    "descripcion": "Iterar rapido con el usuario",
+    "evidencia": "El usuario refina, ARGOS ajusta en cada vuelta",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_asesor",
+    "categoria": "principio",
+    "descripcion": "Calibrar tono al interlocutor",
+    "evidencia": "El tono depende de a quien se le habla, no de lo que uno siente. Consultar personas.perfil_comportamiento",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_asesor",
+    "categoria": "principio",
+    "descripcion": "Proteger al usuario",
+    "evidencia": "Detectar manipulacion, abuso de poder, patrones toxicos",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_asesor",
+    "categoria": "principio",
+    "descripcion": "Desaconsejar lo riesgoso",
+    "evidencia": "Si algo debilita la posicion del usuario, decirlo explicitamente",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_asesor",
+    "categoria": "principio",
+    "descripcion": "Registrar toda intervencion en DB",
+    "evidencia": "Cada accion de asesoramiento va a eventos. Si maniana importa, se registra",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "estructura",
+    "descripcion": "Carpeta A1: Documentacion Legal",
+    "evidencia": "Carta presentacion, garantia, DDJJs, estatuto, poderes, RIUPP. Caratula: 0 Caratula.pdf",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "estructura",
+    "descripcion": "Carpeta A2: Info Economico-Financiera",
+    "evidencia": "IIBB, IVA 12 meses, ARCA, balances, IGJ, ventas, bancos",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "estructura",
+    "descripcion": "Carpeta B: Documentacion Tecnica",
+    "evidencia": "Datos empresa, antecedentes+OC, organigrama, RT, CVs, memoria tecnica, proveedores, subcontratistas, garantia, datasheets",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "estructura",
+    "descripcion": "Carpeta C: Oferta Economica",
+    "evidencia": "Formula oferta, planillas cotizacion, analisis de precios",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "proveedor",
+    "descripcion": "Furukawa (lightera.com): Cat6A, FO OM3, ODF, faceplates, patch panels",
+    "evidencia": "Datasheets descargables directo del sitio",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "proveedor",
+    "descripcion": "Panduit: Racks 42U (4 postes, Net-Access)",
+    "evidencia": "Datasheets descargables",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "proveedor",
+    "descripcion": "Ubiquiti (ui.com): Switches, APs, Gateways",
+    "evidencia": "Datasheets descargables directo del sitio",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "proveedor",
+    "descripcion": "Grandstream: Centrales IP, telefonos, gateways FXO",
+    "evidencia": "Datasheets descargables",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "proveedor",
+    "descripcion": "Kaise: UPS rack",
+    "evidencia": "Datasheets descargables",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "tecnico",
+    "descripcion": "Creacion documentos Word desde template",
+    "evidencia": "Usar DDJJ existente como base (preserva header/footer). clear_body() limpia contenido manteniendo sectPr. add_para() con font, color, size via lxml. Siempre r'' para paths",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "tecnico",
+    "descripcion": "Conversion docx a PDF via Word COM",
+    "evidencia": "Siempre taskkill /f /im WINWORD.EXE antes. win32com.client.Dispatch Word.Application, Visible=False, SaveAs FileFormat=17",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "tecnico",
+    "descripcion": "Merge y foliacion de PDFs",
+    "evidencia": "fitz.open() merged, insert_pdf cada archivo, agregar 'Folio: N' en bottom-right, fontsize=9, color gris (0.3,0.3,0.3). Foliacion continua entre carpetas",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "tecnico",
+    "descripcion": "Analisis de Precios (Anexo VII)",
+    "evidencia": "Cadena: Costo Directo > GG% > CF% > Beneficio% > IVA > Total. IVA mix 21% + 10.5%. Trabajar hacia atras desde total. Celda cierre =TARGET-D68 para absorber floating point",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "tecnico",
+    "descripcion": "Manipulacion .docx existentes",
+    "evidencia": "Buscar en doc.paragraphs Y doc.tables por separado. Reemplazar en run.text (no p.text) para preservar formato",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "troubleshoot",
+    "descripcion": "Encoding espaniol en paths OneDrive",
+    "evidencia": "Usar Python scripts con r'', nunca heredoc bash",
+    "sugerencia": "Usar r'' raw strings siempre",
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "troubleshoot",
+    "descripcion": "OneDrive bloquea archivos",
+    "evidencia": "Reintentar con time.sleep(), o pedir al usuario que cierre",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "troubleshoot",
+    "descripcion": ".docx desaparece (solo queda PDF)",
+    "evidencia": "Buscar en subcarpeta varios/",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "troubleshoot",
+    "descripcion": "PDFs vacios (0 bytes)",
+    "evidencia": "Skip con os.path.getsize() > 0",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "troubleshoot",
+    "descripcion": "Excel PermissionError",
+    "evidencia": "Cerrar Excel, esperar sync OneDrive, reintentar",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "troubleshoot",
+    "descripcion": "Floating point en cadena Excel",
+    "evidencia": "Celda de cierre referenciando target hardcodeado",
+    "sugerencia": null,
+    "compartido": 1
+  }
+]
