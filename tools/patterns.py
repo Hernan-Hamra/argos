@@ -769,6 +769,13 @@ def analizar_patrones():
             nuevos.append({'id': pid, 'categoria': 'recomendacion', 'descripcion': desc})
 
     # --- COMPORTAMIENTO ---
+    # A4: buscar por categoría, no por desc[:30] — evita duplicados
+    # cuando el porcentaje cambia (72% → 82% creaba un patrón nuevo)
+    cat_existentes = {}
+    for p in existentes:
+        if p['tipo'] == 'personal' and p['categoria'] in ('timing', 'workflow'):
+            cat_existentes[p['categoria']] = p
+
     for detector in [detectar_patrones_horario, detectar_patrones_proyecto, detectar_patrones_pendientes]:
         try:
             resultado = detector()
@@ -777,21 +784,40 @@ def analizar_patrones():
         if resultado is None:
             continue
 
+        cat = resultado['categoria']
         desc = resultado['descripcion']
-        key = desc[:30].lower()
-        if key in desc_existentes:
-            p = desc_existentes[key]
+
+        if cat in cat_existentes:
+            # Actualizar descripción + sugerencia del patrón existente (no crear nuevo)
+            p = cat_existentes[cat]
+            conn = get_connection()
+            c = conn.cursor()
+            hoy = date.today().isoformat()
+            c.execute('''UPDATE patrones SET descripcion = ?, sugerencia = ?,
+                         frecuencia = frecuencia + 1, ultimo_visto = ?,
+                         confianza = ?, updated_at = datetime('now','localtime')
+                         WHERE id = ?''',
+                      (desc, resultado.get('sugerencia'), hoy,
+                       resultado.get('confianza', 0.5), p['id']))
+            if p['frecuencia'] + 1 >= 3 and p['estado'] == 'detectado':
+                c.execute("UPDATE patrones SET estado = 'validado' WHERE id = ?", (p['id'],))
+            conn.commit()
+            conn.close()
+            reforzados.append(p)
+        elif desc[:30].lower() in desc_existentes:
+            # Fallback: match por prefijo para patrones de pendientes u otros
+            p = desc_existentes[desc[:30].lower()]
             reforzar_patron(p['id'])
             reforzados.append(p)
             if p['frecuencia'] + 1 >= 3 and p['estado'] == 'detectado':
                 validar_patron(p['id'])
         else:
             pid = add_patron(
-                tipo='personal', categoria=resultado['categoria'],
+                tipo='personal', categoria=cat,
                 descripcion=desc, sugerencia=resultado.get('sugerencia'),
                 confianza=resultado.get('confianza', 0.5)
             )
-            nuevos.append({'id': pid, 'categoria': resultado['categoria'], 'descripcion': desc})
+            nuevos.append({'id': pid, 'categoria': cat, 'descripcion': desc})
 
     return {
         'nuevos': nuevos,

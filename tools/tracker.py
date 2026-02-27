@@ -233,6 +233,56 @@ def init_db():
         created_at TEXT DEFAULT (datetime('now','localtime'))
     )''')
 
+    # === SESIONES (A1: protocolo de sesión en código) ===
+
+    c.execute('''CREATE TABLE IF NOT EXISTS sesiones (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha TEXT NOT NULL,
+        hora_inicio TEXT NOT NULL,
+        hora_fin TEXT,
+        duracion_min INTEGER,
+        estado TEXT DEFAULT 'abierta',
+        proyecto_id INTEGER,
+        resumen TEXT,
+        notas TEXT,
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        FOREIGN KEY (proyecto_id) REFERENCES proyectos(id)
+    )''')
+
+    # === MENSAJES (A2: registro de Q&A) ===
+
+    c.execute('''CREATE TABLE IF NOT EXISTS mensajes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sesion_id INTEGER,
+        timestamp TEXT NOT NULL,
+        rol TEXT NOT NULL,
+        contenido TEXT NOT NULL,
+        tipo TEXT DEFAULT 'mensaje',
+        tokens_estimados INTEGER,
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        FOREIGN KEY (sesion_id) REFERENCES sesiones(id)
+    )''')
+
+    # === REFLEXIONES (sensaciones, opiniones, pensamientos para retomar) ===
+
+    c.execute('''CREATE TABLE IF NOT EXISTS reflexiones (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha TEXT NOT NULL,
+        hora TEXT,
+        tema TEXT NOT NULL,
+        contenido TEXT NOT NULL,
+        sentimiento TEXT DEFAULT 'neutro',
+        intensidad INTEGER DEFAULT 3,
+        area TEXT DEFAULT 'personal',
+        tags TEXT,
+        sesion_id INTEGER,
+        revisado INTEGER DEFAULT 0,
+        fecha_revision TEXT,
+        notas TEXT,
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        FOREIGN KEY (sesion_id) REFERENCES sesiones(id)
+    )''')
+
     conn.commit()
     conn.close()
     print(f"DB inicializada en: {os.path.abspath(DB_PATH)}")
@@ -267,6 +317,9 @@ def add_persona(nombre, relacion=None, empresa=None, contacto=None, notas=None, 
 def add_evento(fecha, tipo, descripcion, subtipo=None, hora=None, proyecto_id=None,
                persona_id=None, fuente=None, resultado=None, duracion_min=None,
                energia=None, notas=None):
+    # A3: auto-fill hora si no viene
+    if hora is None:
+        hora = datetime.now().strftime('%H:%M')
     conn = get_connection()
     c = conn.cursor()
     c.execute('''INSERT INTO eventos (fecha, hora, tipo, subtipo, proyecto_id, persona_id,
@@ -278,6 +331,82 @@ def add_evento(fecha, tipo, descripcion, subtipo=None, hora=None, proyecto_id=No
     conn.commit()
     conn.close()
     return eid
+
+
+def add_mensaje(sesion_id, rol, contenido, tipo='mensaje', tokens_estimados=None):
+    """Registrar un mensaje de la conversación.
+    rol: 'user' o 'assistant'
+    tipo: 'pregunta', 'respuesta', 'accion', 'decision', 'checkpoint', 'mensaje'
+    """
+    conn = get_connection()
+    c = conn.cursor()
+    ahora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    # Estimar tokens si no viene: ~1 token por 4 caracteres
+    if tokens_estimados is None:
+        tokens_estimados = len(contenido) // 4
+    c.execute('''INSERT INTO mensajes (sesion_id, timestamp, rol, contenido, tipo, tokens_estimados)
+                 VALUES (?, ?, ?, ?, ?, ?)''',
+              (sesion_id, ahora, rol, contenido, tipo, tokens_estimados))
+    mid = c.lastrowid
+    conn.commit()
+    conn.close()
+    return mid
+
+
+def add_reflexion(tema, contenido, sentimiento='neutro', intensidad=3, area='personal',
+                  tags=None, sesion_id=None, notas=None):
+    """Registrar una reflexión/sensación/opinión sobre un tema.
+    sentimiento: positivo/negativo/neutro/mixto
+    intensidad: 1-5 (qué tan fuerte)
+    area: laboral/personal/salud/familia/proyecto/otro
+    tags: string separado por comas para búsqueda posterior
+    """
+    conn = get_connection()
+    c = conn.cursor()
+    ahora = datetime.now()
+    c.execute('''INSERT INTO reflexiones (fecha, hora, tema, contenido, sentimiento, intensidad,
+                 area, tags, sesion_id, notas)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+              (ahora.strftime('%Y-%m-%d'), ahora.strftime('%H:%M'),
+               tema, contenido, sentimiento, intensidad, area, tags, sesion_id, notas))
+    rid = c.lastrowid
+    conn.commit()
+    conn.close()
+    return rid
+
+
+def get_reflexiones(tema=None, area=None, sin_revisar=False, limit=20):
+    """Buscar reflexiones por tema, área, o sin revisar."""
+    conn = get_connection()
+    c = conn.cursor()
+    query = 'SELECT * FROM reflexiones WHERE 1=1'
+    params = []
+    if tema:
+        query += ' AND tema LIKE ?'
+        params.append(f'%{tema}%')
+    if area:
+        query += ' AND area = ?'
+        params.append(area)
+    if sin_revisar:
+        query += ' AND revisado = 0'
+    query += ' ORDER BY fecha DESC, hora DESC LIMIT ?'
+    params.append(limit)
+    c.execute(query, params)
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
+def marcar_reflexion_revisada(reflexion_id):
+    """Marcar una reflexión como revisada (retomada en sesión)."""
+    conn = get_connection()
+    c = conn.cursor()
+    ahora = datetime.now().strftime('%Y-%m-%d')
+    c.execute('UPDATE reflexiones SET revisado = 1, fecha_revision = ? WHERE id = ?',
+              (ahora, reflexion_id))
+    conn.commit()
+    conn.close()
+    return True
 
 
 def add_seguimiento(accion, fecha_limite=None, proyecto_id=None, persona_id=None,

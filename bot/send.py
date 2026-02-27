@@ -22,7 +22,16 @@ def send_text(text, chat_id=None):
     if data.get("ok"):
         print(f"Enviado OK: {text[:80]}...")
     else:
-        print(f"Error: {data}")
+        # Fallback: enviar sin Markdown si falla el parsing
+        resp2 = requests.post(f"{API_BASE}/sendMessage", json={
+            "chat_id": chat_id,
+            "text": text
+        })
+        data = resp2.json()
+        if data.get("ok"):
+            print(f"Enviado OK (sin formato): {text[:80]}...")
+        else:
+            print(f"Error: {data}")
     return data
 
 
