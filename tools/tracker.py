@@ -295,6 +295,38 @@ def init_db():
         FOREIGN KEY (sesion_id) REFERENCES sesiones(id)
     )''')
 
+    # === CHECKPOINTS (preguntas obligatorias por momento del día) ===
+
+    c.execute('''CREATE TABLE IF NOT EXISTS checkpoints (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        momento TEXT NOT NULL,
+        orden INTEGER NOT NULL,
+        pregunta TEXT NOT NULL,
+        campo_destino TEXT NOT NULL,
+        tabla_destino TEXT DEFAULT 'bienestar',
+        tipo_respuesta TEXT DEFAULT 'numero',
+        obligatorio INTEGER DEFAULT 1,
+        activo INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now','localtime'))
+    )''')
+
+    # Seed checkpoints si tabla vacía
+    if c.execute("SELECT COUNT(*) FROM checkpoints").fetchone()[0] == 0:
+        checkpoints_seed = [
+            ('apertura', 1, '¿Cómo dormiste? ¿Cuántas horas?', 'horas_sueno,calidad_sueno', 'bienestar', 'texto_libre'),
+            ('apertura', 2, '¿Cómo estás de energía y humor hoy?', 'energia,humor', 'bienestar', 'texto_libre'),
+            ('apertura', 3, '¿Nivel de estrés?', 'estres', 'bienestar', 'numero_1_10'),
+            ('apertura', 4, '¿Hiciste ejercicio?', 'ejercicio_min', 'bienestar', 'texto_libre'),
+            ('apertura', 5, '¿Cómo está todo en casa?', 'atencion_familia', 'bienestar', 'texto_libre'),
+            ('cierre', 1, '¿Qué salió bien hoy?', 'logros', 'bienestar', 'texto_libre'),
+            ('cierre', 2, '¿Qué te frustró o no salió?', 'frustraciones', 'bienestar', 'texto_libre'),
+            ('cierre', 3, '¿Cómo terminás de energía y estrés?', 'energia,estres', 'bienestar', 'texto_libre'),
+        ]
+        c.executemany(
+            "INSERT INTO checkpoints (momento, orden, pregunta, campo_destino, tabla_destino, tipo_respuesta) VALUES (?,?,?,?,?,?)",
+            checkpoints_seed
+        )
+
     conn.commit()
     conn.close()
     print(f"DB inicializada en: {os.path.abspath(DB_PATH)}")
@@ -453,6 +485,300 @@ def resumen_interacciones(fecha=None):
     stats['duracion_audio_total'] = audio[1] or 0
     conn.close()
     return stats
+
+
+def cargar_transcript(transcript_path, sesion_id=None):
+    """Carga el transcript de Claude Code (.jsonl) a la caja negra (tabla mensajes).
+    Lee TODOS los mensajes user/assistant del transcript.
+    Evita duplicados por timestamp+rol.
+    Retorna dict con stats de lo cargado.
+    """
+    import json as _json
+    conn = get_connection()
+    c = conn.cursor()
+
+    # Timestamps ya cargados para evitar duplicados
+    existentes = set()
+    for r in c.execute("SELECT timestamp, rol FROM mensajes WHERE canal='chat'").fetchall():
+        existentes.add((r[0], r[1]))
+
+    # Leer transcript
+    insertados = 0
+    saltados = 0
+    sec = 0
+    if sesion_id:
+        row = c.execute("SELECT COALESCE(MAX(secuencia),0) FROM mensajes WHERE sesion_id=?",
+                        (sesion_id,)).fetchone()
+        sec = row[0] if row[0] else 0
+
+    with open(transcript_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            try:
+                d = _json.loads(line.strip())
+            except _json.JSONDecodeError:
+                continue
+
+            msg_type = d.get('type', '')
+            if msg_type not in ('user', 'assistant'):
+                continue
+
+            msg = d.get('message', {})
+            role = msg.get('role', msg_type)
+            ts_raw = d.get('timestamp', '')
+            # Convertir ISO timestamp a formato DB
+            ts = ts_raw[:19].replace('T', ' ') if ts_raw else datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+            # Extraer texto de content (puede ser string o lista de blocks)
+            content = msg.get('content', [])
+            texts = []
+            if isinstance(content, str):
+                texts.append(content)
+            elif isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get('type') == 'text':
+                        texts.append(block['text'])
+                    elif isinstance(block, str):
+                        texts.append(block)
+            texto = ' '.join(texts).strip()
+            if not texto:
+                continue
+
+            # Mapear rol
+            rol = 'user' if role == 'user' else 'assistant'
+
+            # Evitar duplicados
+            key = (ts, rol)
+            if key in existentes:
+                saltados += 1
+                continue
+            existentes.add(key)
+
+            sec += 1
+            tokens_est = len(texto) // 4
+            c.execute("""INSERT INTO mensajes
+                (sesion_id, timestamp, rol, contenido, tipo, tokens_estimados,
+                 canal, duracion_audio, metadata, secuencia)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (sesion_id, ts, rol, texto, 'texto', tokens_est,
+                 'chat', None, None, sec))
+            insertados += 1
+
+    conn.commit()
+    total = c.execute("SELECT COUNT(*) FROM mensajes").fetchone()[0]
+    conn.close()
+    return {'insertados': insertados, 'saltados': saltados, 'total_mensajes': total}
+
+
+def cargar_telegram_inbox(sesion_id=None):
+    """Carga telegram_inbox.jsonl a la caja negra (tabla mensajes).
+    Evita duplicados por timestamp+rol+canal.
+    """
+    import json as _json
+    inbox_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'telegram_inbox.jsonl')
+    if not os.path.exists(inbox_path):
+        return {'insertados': 0, 'saltados': 0, 'total_mensajes': 0}
+
+    conn = get_connection()
+    c = conn.cursor()
+
+    existentes = set()
+    for r in c.execute("SELECT timestamp, rol, canal FROM mensajes WHERE canal LIKE 'telegram%'").fetchall():
+        existentes.add((r[0], r[1], r[2]))
+
+    insertados = 0
+    saltados = 0
+    sec = 0
+    if sesion_id:
+        row = c.execute("SELECT COALESCE(MAX(secuencia),0) FROM mensajes WHERE sesion_id=?",
+                        (sesion_id,)).fetchone()
+        sec = row[0] if row[0] else 0
+
+    with open(inbox_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            try:
+                d = _json.loads(line.strip())
+            except _json.JSONDecodeError:
+                continue
+
+            ts = d.get('ts', '')
+            dir_ = d.get('dir', '')
+            tipo = d.get('tipo', '')
+            contenido = d.get('contenido', '') or ''
+            transcripcion = d.get('transcripcion', '')
+            duracion = d.get('duracion', None)
+
+            if dir_ == 'in':
+                rol = 'user'
+            elif dir_ == 'out':
+                rol = 'assistant'
+            else:
+                rol = 'system'
+
+            if tipo == 'audio':
+                canal = 'telegram_audio'
+                texto = transcripcion or contenido
+            elif tipo == 'system':
+                canal = 'telegram_system'
+                texto = contenido
+            else:
+                canal = 'telegram_texto'
+                texto = contenido
+
+            if not texto:
+                continue
+
+            key = (ts, rol, canal)
+            if key in existentes:
+                saltados += 1
+                continue
+            existentes.add(key)
+
+            sec += 1
+            meta = _json.dumps({'duracion_original': duracion}, ensure_ascii=False) if duracion else None
+            c.execute("""INSERT INTO mensajes
+                (sesion_id, timestamp, rol, contenido, tipo, tokens_estimados,
+                 canal, duracion_audio, metadata, secuencia)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (sesion_id, ts, rol, texto, tipo, len(texto) // 4,
+                 canal, duracion, meta, sec))
+            insertados += 1
+
+    conn.commit()
+    total = c.execute("SELECT COUNT(*) FROM mensajes").fetchone()[0]
+    conn.close()
+    return {'insertados': insertados, 'saltados': saltados, 'total_mensajes': total}
+
+
+def cargar_caja_negra(sesion_id=None):
+    """Carga TODA la caja negra: transcript de chat + telegram inbox.
+    Llamar al cierre de sesión. Idempotente (evita duplicados).
+    """
+    import glob as _glob
+    # Encontrar transcript más reciente
+    transcript_dir = os.path.join(os.path.expanduser('~'), '.claude', 'projects',
+                                   'c--Users-HERNAN-argos')
+    transcripts = sorted(_glob.glob(os.path.join(transcript_dir, '*.jsonl')),
+                         key=os.path.getmtime, reverse=True)
+
+    resultados = {}
+    if transcripts:
+        resultados['chat'] = cargar_transcript(transcripts[0], sesion_id)
+    else:
+        resultados['chat'] = {'insertados': 0, 'error': 'No se encontró transcript'}
+
+    resultados['telegram'] = cargar_telegram_inbox(sesion_id)
+
+    total_ins = sum(r.get('insertados', 0) for r in resultados.values())
+    total_msgs = max(r.get('total_mensajes', 0) for r in resultados.values())
+    print(f"Caja negra: {total_ins} mensajes nuevos cargados | Total en DB: {total_msgs}")
+    return resultados
+
+
+def resumen_diario(fecha=None):
+    """Genera resumen del día para conectar con el día siguiente.
+    Combina: bienestar + eventos + caja negra + pendientes.
+    Guarda como evento subtipo='resumen_diario'.
+    Retorna el texto del resumen.
+    """
+    if not fecha:
+        fecha = date.today().isoformat()
+    conn = get_connection()
+    lineas = [f"# Resumen {fecha}", ""]
+
+    # Bienestar
+    bienest = conn.execute("SELECT * FROM bienestar WHERE fecha=?", (fecha,)).fetchone()
+    if bienest:
+        lineas.append("**Bienestar:**")
+        campos = ['humor', 'energia', 'estres', 'horas_sueno', 'calidad_sueno',
+                  'atencion_familia', 'ejercicio_min']
+        for c in campos:
+            val = bienest[c] if bienest[c] is not None else '—'
+            lineas.append(f"- {c}: {val}")
+        if bienest['logros']:
+            lineas.append(f"- Logros: {bienest['logros']}")
+        if bienest['frustraciones']:
+            lineas.append(f"- Frustraciones: {bienest['frustraciones']}")
+        lineas.append("")
+
+    # Interacciones
+    stats = resumen_interacciones(fecha)
+    if stats['total'] > 0:
+        lineas.append(f"**Interacciones:** {stats['total']} mensajes ({stats['primera'][-8:]} a {stats['ultima'][-8:]})")
+        canales = ', '.join(f"{k}:{v}" for k, v in stats.get('por_canal', {}).items())
+        lineas.append(f"- Canales: {canales}")
+        if stats['audios'] > 0:
+            lineas.append(f"- Audios: {stats['audios']} ({stats['duracion_audio_total']:.0f}s total)")
+        lineas.append("")
+
+    # Eventos del día
+    eventos = conn.execute(
+        "SELECT tipo, subtipo, descripcion FROM eventos WHERE fecha=? AND subtipo != 'resumen_diario' ORDER BY id",
+        (fecha,)
+    ).fetchall()
+    if eventos:
+        lineas.append(f"**Eventos ({len(eventos)}):**")
+        for e in eventos:
+            lineas.append(f"- [{e['tipo']}/{e['subtipo']}] {e['descripcion'][:120]}")
+        lineas.append("")
+
+    # Pendientes vencidos
+    vencidos = conn.execute(
+        "SELECT accion, proyecto_id FROM seguimiento WHERE estado != 'completado' AND fecha_limite <= ?",
+        (fecha,)
+    ).fetchall()
+    if vencidos:
+        lineas.append(f"**Pendientes vencidos: {len(vencidos)}**")
+        for v in vencidos[:5]:
+            lineas.append(f"- [P{v['proyecto_id']}] {v['accion'][:100]}")
+        if len(vencidos) > 5:
+            lineas.append(f"- ... y {len(vencidos)-5} más")
+        lineas.append("")
+
+    conn.close()
+    texto = '\n'.join(lineas)
+
+    # Guardar como evento
+    add_evento(fecha, 'admin', texto[:500], subtipo='resumen_diario', proyecto_id=7, fuente='auto')
+    return texto
+
+
+def get_checkpoints(momento='apertura'):
+    """Lee checkpoints activos de la DB para un momento dado."""
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM checkpoints WHERE momento=? AND activo=1 ORDER BY orden",
+        (momento,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_resumen_ayer():
+    """Lee el bienestar y resumen del día anterior para mostrar al abrir sesión."""
+    ayer = (date.today() - __import__('datetime').timedelta(days=1)).isoformat()
+    conn = get_connection()
+    bienest = conn.execute("SELECT * FROM bienestar WHERE fecha=?", (ayer,)).fetchone()
+    resumen = conn.execute(
+        "SELECT descripcion FROM eventos WHERE fecha=? AND subtipo='resumen_diario' LIMIT 1",
+        (ayer,)
+    ).fetchone()
+
+    # Promedios semanales para comparar
+    semana = (date.today() - __import__('datetime').timedelta(days=7)).isoformat()
+    promedios = conn.execute("""
+        SELECT AVG(humor) as humor, AVG(energia) as energia, AVG(estres) as estres,
+               AVG(horas_sueno) as sueno, AVG(ejercicio_min) as ejercicio
+        FROM bienestar WHERE fecha >= ?
+    """, (semana,)).fetchone()
+    conn.close()
+
+    resultado = {
+        'fecha_ayer': ayer,
+        'bienestar_ayer': dict(bienest) if bienest else None,
+        'resumen_ayer': resumen[0] if resumen else None,
+        'promedios_semana': dict(promedios) if promedios else None
+    }
+    return resultado
 
 
 def add_reflexion(tema, contenido, sentimiento='neutro', intensidad=3, area='personal',
