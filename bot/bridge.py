@@ -27,7 +27,7 @@ def _ensure_data_dir():
 
 
 def escribir_mensaje(direccion, contenido, tipo='text', extra=None):
-    """Escribe un mensaje al inbox (in=recibido, out=enviado)."""
+    """Escribe un mensaje al inbox Y a la caja negra (DB) en tiempo real."""
     _ensure_data_dir()
     entry = {
         'ts': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -37,8 +37,26 @@ def escribir_mensaje(direccion, contenido, tipo='text', extra=None):
     }
     if extra:
         entry.update(extra)
+    # 1. Escribir al .jsonl (como antes)
     with open(INBOX_FILE, 'a', encoding='utf-8') as f:
         f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+    # 2. Escribir a caja negra (DB) en tiempo real
+    try:
+        from tools.tracker import add_mensaje
+        rol = 'user' if direccion == 'in' else ('assistant' if direccion == 'out' else 'system')
+        if tipo == 'audio':
+            canal = 'telegram_audio'
+            texto = extra.get('transcripcion', contenido) if extra else contenido
+        else:
+            canal = 'telegram_texto'
+            texto = contenido
+        duracion = extra.get('duracion', None) if extra else None
+        add_mensaje(
+            sesion_id=None, rol=rol, contenido=texto,
+            tipo=tipo, canal=canal, duracion_audio=duracion
+        )
+    except Exception:
+        pass  # No bloquear Telegram si la DB falla
     return entry
 
 
