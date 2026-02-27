@@ -249,7 +249,7 @@ def init_db():
         FOREIGN KEY (proyecto_id) REFERENCES proyectos(id)
     )''')
 
-    # === MENSAJES (A2: registro de Q&A) ===
+    # === MENSAJES (A2: registro crudo de toda interacción Q&A) ===
 
     c.execute('''CREATE TABLE IF NOT EXISTS mensajes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -259,9 +259,21 @@ def init_db():
         contenido TEXT NOT NULL,
         tipo TEXT DEFAULT 'mensaje',
         tokens_estimados INTEGER,
+        canal TEXT DEFAULT 'chat',
+        duracion_audio REAL,
+        metadata TEXT,
+        secuencia INTEGER,
         created_at TEXT DEFAULT (datetime('now','localtime')),
         FOREIGN KEY (sesion_id) REFERENCES sesiones(id)
     )''')
+
+    # Migrar columnas nuevas si tabla ya existía
+    for col, tipo in [('canal', "TEXT DEFAULT 'chat'"), ('duracion_audio', 'REAL'),
+                      ('metadata', 'TEXT'), ('secuencia', 'INTEGER')]:
+        try:
+            c.execute(f"ALTER TABLE mensajes ADD COLUMN {col} {tipo}")
+        except sqlite3.OperationalError:
+            pass
 
     # === REFLEXIONES (sensaciones, opiniones, pensamientos para retomar) ===
 
@@ -333,24 +345,114 @@ def add_evento(fecha, tipo, descripcion, subtipo=None, hora=None, proyecto_id=No
     return eid
 
 
-def add_mensaje(sesion_id, rol, contenido, tipo='mensaje', tokens_estimados=None):
-    """Registrar un mensaje de la conversación.
+def add_mensaje(sesion_id, rol, contenido, tipo='mensaje', tokens_estimados=None,
+                canal='chat', duracion_audio=None, metadata=None):
+    """Registrar un mensaje crudo de la conversación.
     rol: 'user' o 'assistant'
-    tipo: 'pregunta', 'respuesta', 'accion', 'decision', 'checkpoint', 'mensaje'
+    tipo: 'texto', 'audio_telegram', 'accion', 'decision', 'checkpoint', 'mensaje'
+    canal: 'chat', 'telegram_texto', 'telegram_audio'
+    duracion_audio: segundos (si es audio)
+    metadata: dict con datos extra (se guarda como JSON)
     """
+    import json as _json
     conn = get_connection()
     c = conn.cursor()
     ahora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     # Estimar tokens si no viene: ~1 token por 4 caracteres
     if tokens_estimados is None:
         tokens_estimados = len(contenido) // 4
-    c.execute('''INSERT INTO mensajes (sesion_id, timestamp, rol, contenido, tipo, tokens_estimados)
-                 VALUES (?, ?, ?, ?, ?, ?)''',
-              (sesion_id, ahora, rol, contenido, tipo, tokens_estimados))
+    # Calcular secuencia dentro de la sesión
+    sec = 1
+    if sesion_id:
+        row = c.execute("SELECT MAX(secuencia) FROM mensajes WHERE sesion_id=?",
+                        (sesion_id,)).fetchone()
+        if row and row[0]:
+            sec = row[0] + 1
+    meta_json = _json.dumps(metadata, ensure_ascii=False) if metadata else None
+    c.execute('''INSERT INTO mensajes
+                 (sesion_id, timestamp, rol, contenido, tipo, tokens_estimados,
+                  canal, duracion_audio, metadata, secuencia)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+              (sesion_id, ahora, rol, contenido, tipo, tokens_estimados,
+               canal, duracion_audio, meta_json, sec))
     mid = c.lastrowid
     conn.commit()
     conn.close()
     return mid
+
+
+def get_conversacion(sesion_id=None, desde=None, hasta=None, canal=None, limit=100):
+    """Consultar conversación cruda en orden cronológico.
+    sesion_id: filtrar por sesión
+    desde/hasta: rango de fechas 'YYYY-MM-DD'
+    canal: 'chat', 'telegram_texto', 'telegram_audio'
+    Retorna lista de dicts con toda la info.
+    """
+    conn = get_connection()
+    where = []
+    params = []
+    if sesion_id:
+        where.append("m.sesion_id = ?")
+        params.append(sesion_id)
+    if desde:
+        where.append("m.timestamp >= ?")
+        params.append(desde)
+    if hasta:
+        where.append("m.timestamp <= ?")
+        params.append(hasta + " 23:59:59")
+    if canal:
+        where.append("m.canal = ?")
+        params.append(canal)
+    filtro = (" WHERE " + " AND ".join(where)) if where else ""
+    rows = conn.execute(f"""
+        SELECT m.*, s.fecha as sesion_fecha
+        FROM mensajes m
+        LEFT JOIN sesiones s ON m.sesion_id = s.id
+        {filtro}
+        ORDER BY m.timestamp, m.secuencia
+        LIMIT ?
+    """, params + [limit]).fetchall()
+    resultado = [dict(r) for r in rows]
+    conn.close()
+    return resultado
+
+
+def resumen_interacciones(fecha=None):
+    """Resumen rápido de interacciones de un día.
+    Muestra: total mensajes, por canal, duración sesión, tiempo respuesta promedio.
+    """
+    if not fecha:
+        fecha = date.today().isoformat()
+    conn = get_connection()
+    stats = {}
+    stats['fecha'] = fecha
+    stats['total'] = conn.execute(
+        "SELECT COUNT(*) FROM mensajes WHERE timestamp LIKE ?", (fecha + '%',)
+    ).fetchone()[0]
+    stats['por_canal'] = {r[0]: r[1] for r in conn.execute(
+        "SELECT canal, COUNT(*) FROM mensajes WHERE timestamp LIKE ? GROUP BY canal",
+        (fecha + '%',)
+    ).fetchall()}
+    stats['por_rol'] = {r[0]: r[1] for r in conn.execute(
+        "SELECT rol, COUNT(*) FROM mensajes WHERE timestamp LIKE ? GROUP BY rol",
+        (fecha + '%',)
+    ).fetchall()}
+    # Primera y última interacción
+    rango = conn.execute(
+        "SELECT MIN(timestamp), MAX(timestamp) FROM mensajes WHERE timestamp LIKE ?",
+        (fecha + '%',)
+    ).fetchone()
+    stats['primera'] = rango[0]
+    stats['ultima'] = rango[1]
+    # Audio
+    audio = conn.execute(
+        "SELECT COUNT(*), SUM(duracion_audio) FROM mensajes WHERE timestamp LIKE ? AND duracion_audio IS NOT NULL",
+        (fecha + '%',)
+    ).fetchone()
+    stats['audios'] = audio[0]
+    stats['duracion_audio_total'] = audio[1] or 0
+    conn.close()
+    return stats
 
 
 def add_reflexion(tema, contenido, sentimiento='neutro', intensidad=3, area='personal',
@@ -1582,6 +1684,104 @@ def migrar_datos_iniciales():
                       'aicontrol': aicontrol, 'agente_hosp': agente_hosp, 'busqueda': busqueda,
                       'argos_prod': argos_prod}
     }
+
+
+def estado_proyectos(exportar=False, proyecto_id=None):
+    """
+    Reporte consolidado de estado de proyectos.
+    Fuente unica de verdad: proyectos (contexto) + eventos (hitos) + seguimiento (pendientes).
+    exportar=True genera data/estado_proyectos.md
+    proyecto_id=N filtra un solo proyecto.
+    Retorna el texto del reporte.
+    """
+    conn = get_connection()
+    hoy = date.today().isoformat()
+
+    lineas = [f"# Estado de Proyectos — {hoy}", ""]
+
+    for seccion, filtro in [("ACTIVOS", "activo"), ("PAUSADOS", "pausado"), ("COMPLETADOS", "completado")]:
+        if proyecto_id:
+            proyectos = conn.execute(
+                "SELECT * FROM proyectos WHERE estado=? AND id=? ORDER BY id", (filtro, proyecto_id)
+            ).fetchall()
+        else:
+            proyectos = conn.execute(
+                "SELECT * FROM proyectos WHERE estado=? ORDER BY id", (filtro,)
+            ).fetchall()
+        if not proyectos:
+            continue
+        lineas.append(f"## {seccion}")
+        lineas.append("")
+
+        for p in proyectos:
+            owner = f" [{p['owner']}]" if p['owner'] else ""
+            lineas.append(f"### [{p['id']}] {p['nombre']}{owner}")
+
+            # Contexto narrativo desde notas
+            notas = p['notas'] or ""
+            if notas.strip():
+                lineas.append(f"> {notas.strip()}")
+
+            # Hitos completados (desde eventos)
+            hitos = conn.execute(
+                "SELECT fecha, descripcion FROM eventos "
+                "WHERE proyecto_id=? AND subtipo='hito' "
+                "ORDER BY fecha DESC LIMIT 10",
+                (p['id'],)
+            ).fetchall()
+            if hitos:
+                lineas.append("")
+                lineas.append("**Completado:**")
+                for h in hitos:
+                    lineas.append(f"- [{h['fecha']}] {h['descripcion'][:120]}")
+
+            # Pendientes (desde seguimiento)
+            pendientes = conn.execute(
+                "SELECT accion, fecha_limite, prioridad, estado FROM seguimiento "
+                "WHERE proyecto_id=? AND estado != 'completado' ORDER BY "
+                "CASE prioridad WHEN 'critica' THEN 0 WHEN 'alta' THEN 1 "
+                "WHEN 'media' THEN 2 ELSE 3 END, fecha_limite",
+                (p['id'],)
+            ).fetchall()
+
+            if pendientes:
+                lineas.append("")
+                lineas.append("**Pendientes:**")
+                for t in pendientes:
+                    venc = ""
+                    if t['fecha_limite'] and t['fecha_limite'] < hoy:
+                        venc = " **VENCIDO**"
+                    fecha = t['fecha_limite'] or "sin fecha"
+                    prio = t['prioridad'] or "media"
+                    lineas.append(f"- [{prio}] {t['accion'][:120]} (limite: {fecha}){venc}")
+            else:
+                if filtro == 'completado':
+                    lineas.append("- Finalizado.")
+                else:
+                    lineas.append("- Sin pendientes registrados.")
+
+            lineas.append("")
+
+    # Resumen al final
+    total = conn.execute("SELECT COUNT(*) FROM proyectos").fetchone()[0]
+    activos = conn.execute("SELECT COUNT(*) FROM proyectos WHERE estado='activo'").fetchone()[0]
+    pend_total = conn.execute("SELECT COUNT(*) FROM seguimiento WHERE estado != 'completado'").fetchone()[0]
+    vencidos = conn.execute(
+        "SELECT COUNT(*) FROM seguimiento WHERE estado != 'completado' AND fecha_limite < ?", (hoy,)
+    ).fetchone()[0]
+
+    lineas.append("---")
+    lineas.append(f"**Total:** {total} proyectos ({activos} activos) | {pend_total} pendientes ({vencidos} vencidos)")
+
+    conn.close()
+    texto = "\n".join(lineas)
+
+    if exportar:
+        ruta = os.path.join(os.path.dirname(__file__), '..', 'data', 'estado_proyectos.md')
+        with open(ruta, 'w', encoding='utf-8') as f:
+            f.write(texto)
+
+    return texto
 
 
 if __name__ == '__main__':
