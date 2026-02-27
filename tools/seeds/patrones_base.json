@@ -161,6 +161,86 @@
   },
   {
     "tipo": "protocolo_licitacion",
+    "categoria": "flujo",
+    "descripcion": "Paso 0: Registrar licitacion en DB",
+    "evidencia": "Crear proyecto en tabla proyectos (nombre, tipo=laboral, estado=activo). Crear carpeta en argos/projects/{nombre_corto}/. Preguntar al usuario donde esta el pliego y la carpeta de trabajo en OneDrive.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "flujo",
+    "descripcion": "Paso 1: Leer pliego y extraer requisitos",
+    "evidencia": "Leer el pliego PDF completo. Extraer: objeto, plazo, garantias, documentacion requerida por carpeta (A1/A2/B/C), items a cotizar, condiciones especiales, visita tecnica, fecha apertura. Registrar como evento tipo=licitacion subtipo=analisis_pliego.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "flujo",
+    "descripcion": "Paso 2: Armar estructura de carpetas",
+    "evidencia": "Crear en OneDrive: DOC A PRESENTAR/CARPETA A1, A2, B, C con subcarpetas varios/ para .docx originales. Caratula 0 Caratula.pdf en cada una. Registrar en seguimiento la fecha limite de presentacion.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "flujo",
+    "descripcion": "Paso 3: Documentacion legal (Carpeta A1)",
+    "evidencia": "Generar: carta presentacion, DDJJs (impedimentos, domicilio, seguros, DDJJ general), garantia de oferta (poliza o cheque). Recopilar: estatuto, poderes, RIUPP, constancias. Cada doc: .docx en varios/ y .pdf en carpeta principal.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "flujo",
+    "descripcion": "Paso 4: Info economico-financiera (Carpeta A2)",
+    "evidencia": "Recopilar del usuario: IIBB ultimos 12 meses, VEP IVA 12 meses, constancia ARCA, balances certificados, IGJ vigente, certificacion ventas, constancias bancarias. Solo recopilar, no generar.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "flujo",
+    "descripcion": "Paso 5: Documentacion tecnica (Carpeta B)",
+    "evidencia": "Generar: datos empresa, listado antecedentes+OC, organigrama, designacion RT, CVs equipo, memoria tecnica, listado proveedores/subcontratistas, certificado garantia, plan de trabajo (Gantt). Descargar datasheets de equipos ofertados.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "flujo",
+    "descripcion": "Paso 6: Oferta economica (Carpeta C)",
+    "evidencia": "Completar planillas del pliego con precios unitarios. Analisis de precios (Anexo VII): Costo Directo > GG > CF > Beneficio > IVA mix > Total. Verificar que el total coincida con la formula de oferta. Usar cotizacion.py para algebra inversa.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "flujo",
+    "descripcion": "Paso 7: Verificar completitud",
+    "evidencia": "Checklist contra el pliego: cada documento requerido debe existir en la carpeta correspondiente. Verificar: firma donde corresponda, fojas numeradas, garantia vigente, todos los anexos completos, formatos correctos (PDF no vacio, >0 bytes).",
+    "sugerencia": "Recorrer cada item del pliego y verificar uno por uno",
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "flujo",
+    "descripcion": "Paso 8: Merge y foliacion final",
+    "evidencia": "Ordenar PDFs dentro de cada carpeta segun indice del pliego. Merge por carpeta con foliador.py. Foliacion continua: A1 empieza en 1, A2 continua donde termino A1, B continua, C continua. Verificar que no haya PDFs vacios.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
+    "categoria": "flujo",
+    "descripcion": "Paso 9: Presentacion y registro",
+    "evidencia": "Confirmar con usuario la carpeta final. Si es electronica: indicar formato de carga. Si es fisica: imprimir y encuadernar. Registrar evento tipo=licitacion subtipo=presentacion con resultado.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_licitacion",
     "categoria": "proveedor",
     "descripcion": "Furukawa (lightera.com): Cat6A, FO OM3, ODF, faceplates, patch panels",
     "evidencia": "Datasheets descargables directo del sitio",
