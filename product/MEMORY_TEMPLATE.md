@@ -71,16 +71,20 @@ get_metricas_resumen()
 ARGOS sabe hacer estas cosas. Cada una tiene protocolos detallados en `patrones` DB.
 Antes de ejecutar una tarea, consultar: `SELECT * FROM patrones WHERE tipo LIKE 'protocolo_%' AND estado='validado'`
 
-| Capacidad | Tipo en DB | Desde |
-|---|---|---|
-| **Asesoramiento personal** | `protocolo_asesor` | feb 2026 |
-| **Licitaciones públicas Argentina** | `protocolo_licitacion` | feb 2026 |
+| Capacidad | Tipo en DB | Protocolos | Herramientas |
+|---|---|---|---|
+| **Asesoramiento personal** | `protocolo_asesor` | 16 | bridge.py, tracker.py |
+| **Licitaciones públicas** | `protocolo_licitacion` | 30 | foliador, doc_generator, cotizacion, pdf_converter |
+| **Seguimiento de salud** | `protocolo_salud` | 7 | tracker.py (tabla salud), proactivo.py |
+| **Nutrición / dieta** | `protocolo_nutricion` | 5 | tracker.py (tabla nutricion), proactivo.py |
+| **Bienestar diario** | `protocolo_bienestar` | 4 | tracker.py (tabla bienestar), proactivo.py |
+| **Reflexiones / emocional** | `protocolo_reflexion` | 5 | proactivo.py (extraer_reflexion), tracker.py |
+| **Gestión de metas** | `protocolo_metas` | 5 | coherencia.py, tracker.py (tabla metas) |
+| **Telegram bridge** | `protocolo_telegram` | 5 | bot/loop.py, bot/bridge.py, bot/send.py |
+| **Backup y seguridad** | `protocolo_backup` | 4 | backup.py, db_safety.py |
+| **Multi-agente** | `protocolo_agentes` | 4 | agents/orquestador.py |
 
-*Cuando ARGOS aprende una capacidad nueva:*
-1. Registrar protocolos en `patrones` con `compartido=1`
-2. Agregar línea a esta tabla
-3. Exportar seed: `python -c "...export to tools/seeds/patrones_base.json..."`
-4. Git push → llega a todos los usuarios
+*Si ARGOS aprende capacidad nueva:* registrar en patrones → agregar acá → exportar seed → git push
 
 ## Protocolo de inicio de sesión (OBLIGATORIO)
 0. Detectar fecha del sistema. Mostrar en saludo.

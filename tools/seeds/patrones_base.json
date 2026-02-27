@@ -1,5 +1,37 @@
 [
   {
+    "tipo": "protocolo_agentes",
+    "categoria": "flujo",
+    "descripcion": "Consulta multi-agente",
+    "evidencia": "Usar agents/orquestador.py: consultar_agentes(pregunta). El orquestador distribuye a los agentes relevantes (Estratega, Neuro, UX, Etico, Datos, Operaciones, Comunicacion). Cada uno responde desde su perspectiva.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_agentes",
+    "categoria": "flujo",
+    "descripcion": "Panel de estado",
+    "evidencia": "panel_agentes() muestra estado de cada agente: activo/inactivo, ultima consulta, especialidad. Se ejecuta al inicio de sesion.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_agentes",
+    "categoria": "principio",
+    "descripcion": "Agentes invisibles para el usuario",
+    "evidencia": "El usuario habla con ARGOS. Los agentes trabajan internamente. No decir 'el agente Neuro opina que...'. Integrar las perspectivas en una sola respuesta.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_agentes",
+    "categoria": "principio",
+    "descripcion": "Registrar consultas",
+    "evidencia": "Cada consulta multi-agente se registra en tabla consultas_agente con la pregunta, agentes consultados, y respuestas. Sirve para mejorar el sistema.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
     "tipo": "protocolo_asesor",
     "categoria": "capacidad",
     "descripcion": "Redaccion de mensajes (WhatsApp, email, carta)",
@@ -124,6 +156,70 @@
     "categoria": "principio",
     "descripcion": "Registrar toda intervencion en DB",
     "evidencia": "Cada accion de asesoramiento va a eventos. Si maniana importa, se registra",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_backup",
+    "categoria": "flujo",
+    "descripcion": "Backup al cerrar sesion",
+    "evidencia": "Ejecutar python tools/backup.py. Copia DB con timestamp a carpeta de backup del usuario. Mantiene ultimos 10 backups. El mas reciente se llama _latest.db.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_backup",
+    "categoria": "flujo",
+    "descripcion": "Safe delete y safe update",
+    "evidencia": "Usar db_safety.safe_delete() y safe_update() en vez de DELETE/UPDATE directo. Registra en _papelera antes de borrar. Registra en _operaciones_log.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_backup",
+    "categoria": "principio",
+    "descripcion": "WAL mode activo",
+    "evidencia": "DB usa WAL (Write-Ahead Logging). Permite lecturas concurrentes. Se activa en db_safety.py al arrancar.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_backup",
+    "categoria": "principio",
+    "descripcion": "Nunca borrar sin papelera",
+    "evidencia": "Todo delete pasa por safe_delete que guarda copia en _papelera. Se puede recuperar.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_bienestar",
+    "categoria": "flujo",
+    "descripcion": "Registro diario de bienestar",
+    "evidencia": "Campos: humor (1-5), energia (1-5), estres (1-10), horas_sueno, calidad_sueno, ejercicio_min, logros, frustraciones, conflictos, notas. Insertar en tabla bienestar. No todos los campos son obligatorios.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_bienestar",
+    "categoria": "flujo",
+    "descripcion": "Reporte semanal bienestar",
+    "evidencia": "Consultar bienestar ultimos 7 dias. Calcular promedios. Detectar tendencias (estres subiendo, energia bajando). Cruzar con eventos del mismo periodo para correlacionar.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_bienestar",
+    "categoria": "principio",
+    "descripcion": "Espejo no coach",
+    "evidencia": "Mostrar los numeros y las tendencias. No decir 'deberias descansar mas'. Dejar que el usuario saque sus conclusiones.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_bienestar",
+    "categoria": "principio",
+    "descripcion": "Nudge si hace 2+ dias sin registro",
+    "evidencia": "proactivo.py detecta dias sin bienestar. Nudge: 'Hace X dias sin registrar bienestar. Como estas hoy? (rapido: humor/energia/estres)'",
     "sugerencia": null,
     "compartido": 1
   },
@@ -364,6 +460,222 @@
     "categoria": "troubleshoot",
     "descripcion": "Floating point en cadena Excel",
     "evidencia": "Celda de cierre referenciando target hardcodeado",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_metas",
+    "categoria": "flujo",
+    "descripcion": "Registrar meta nueva",
+    "evidencia": "Campos: descripcion, area (laboral/personal/salud/proyecto), estado=activa, indicadores de avance. Insertar en tabla metas. Crear seguimiento asociado si tiene deadline.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_metas",
+    "categoria": "flujo",
+    "descripcion": "Medir coherencia intencion vs comportamiento",
+    "evidencia": "Usar tools/coherencia.py: medir_coherencia_meta() cruza lo que el usuario dice que quiere con lo que realmente hace (eventos). Puntaje 0-1. Mostrar como espejo.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_metas",
+    "categoria": "flujo",
+    "descripcion": "Reporte de coherencia semanal",
+    "evidencia": "coherencia.reporte_coherencia() genera reporte de todas las metas activas. Muestra: coherencia promedio, metas avanzando, metas abandonadas, sugerencias.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_metas",
+    "categoria": "principio",
+    "descripcion": "Espejo no presion",
+    "evidencia": "Mostrar los numeros. Si coherencia es baja, no decir 'estas fallando'. Decir 'la meta X no tuvo actividad en Y dias. Que queres hacer con esto?'",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_metas",
+    "categoria": "principio",
+    "descripcion": "Detectar metas implicitas",
+    "evidencia": "Si el usuario dice repetidamente 'quiero X' pero no tiene meta registrada, sugerir crearla. Solo sugerir, no crear automaticamente.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_nutricion",
+    "categoria": "flujo",
+    "descripcion": "Registrar comida",
+    "evidencia": "Usuario dice que comio (texto libre o audio). Extraer: tipo_comida (desayuno/almuerzo/merienda/cena/snack), descripcion, calorias_est si es posible. Insertar en tabla nutricion.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_nutricion",
+    "categoria": "flujo",
+    "descripcion": "Reporte semanal nutricion",
+    "evidencia": "Consultar nutricion ultimos 7 dias. Comparar contra plan activo (salud WHERE tipo=plan_nutricional). Detectar: dias sin registro, comidas que no siguen el plan, patrones.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_nutricion",
+    "categoria": "flujo",
+    "descripcion": "Cargar plan nutricional",
+    "evidencia": "Recibir plan del nutricionista (texto, PDF, foto). Extraer reglas: proteinas, vegetales, suplementos, hidratacion, ejercicio. Guardar en salud tipo=plan_nutricional con detalle completo en descripcion+notas.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_nutricion",
+    "categoria": "principio",
+    "descripcion": "Registro debe ser facil",
+    "evidencia": "El usuario dice 'comi pollo con ensalada' y ARGOS lo registra completo. No pedir formularios largos. Extraer datos del texto libre.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_nutricion",
+    "categoria": "principio",
+    "descripcion": "Nudge sin presion",
+    "evidencia": "Si hace 3+ dias sin registrar comida, proactivo.py genera nudge suave. No juzgar, no presionar. Solo recordar.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_reflexion",
+    "categoria": "flujo",
+    "descripcion": "Capturar reflexion de texto libre",
+    "evidencia": "Usuario dice algo emocional/reflexivo. Usar proactivo.extraer_reflexion() para detectar sentimiento, intensidad, area, tags. Insertar en tabla reflexiones con revisado=0.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_reflexion",
+    "categoria": "flujo",
+    "descripcion": "Revisar reflexiones pendientes",
+    "evidencia": "SELECT * FROM reflexiones WHERE revisado=0 ORDER BY fecha DESC. Mostrar al usuario en inicio de sesion si hay reflexiones sin retomar. Preguntar si quiere revisarlas.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_reflexion",
+    "categoria": "flujo",
+    "descripcion": "Generar reporte emocional",
+    "evidencia": "Analizar reflexiones de un periodo. Agrupar por sentimiento, area, intensidad. Detectar patrones: temas recurrentes, areas de frustracion, momentos positivos.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_reflexion",
+    "categoria": "principio",
+    "descripcion": "No juzgar",
+    "evidencia": "Las reflexiones son del usuario. ARGOS registra y refleja, no opina sobre sentimientos. Solo muestra patrones.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_reflexion",
+    "categoria": "principio",
+    "descripcion": "Detectar automaticamente",
+    "evidencia": "Si el usuario dice algo con carga emocional en una conversacion normal, ofrecer registrarlo como reflexion. No forzar.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_salud",
+    "categoria": "flujo",
+    "descripcion": "Registrar turno medico",
+    "evidencia": "Preguntar: fecha, profesional, especialidad, lugar. Insertar en tabla salud con estado=pendiente. Crear seguimiento con fecha_limite=fecha del turno. Alertar en inicio de sesion si hay turno proximo (3 dias).",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_salud",
+    "categoria": "flujo",
+    "descripcion": "Registrar resultado de consulta",
+    "evidencia": "Actualizar registro en salud: estado=realizado, resultado=diagnostico/indicacion, proxima_cita si hay. Si hay cirugia indicada, crear seguimiento con prioridad alta.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_salud",
+    "categoria": "flujo",
+    "descripcion": "Registrar estudio medico",
+    "evidencia": "Tipo=estudio en tabla salud. Registrar donde queda el archivo (path en OneDrive). Si es de familiar, usar persona_id correspondiente de tabla personas.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_salud",
+    "categoria": "flujo",
+    "descripcion": "Registrar plan medico/nutricional",
+    "evidencia": "Tipo=plan_nutricional o plan_medico en salud. Descripcion con el plan completo. Estado=activo. Notas con detalles (marcas, suplementos, rutina).",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_salud",
+    "categoria": "principio",
+    "descripcion": "Salud familiar incluida",
+    "evidencia": "No solo el usuario principal. Registrar turnos, estudios y planes de familiares con su persona_id correspondiente. Tabla salud soporta cualquier persona_id.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_salud",
+    "categoria": "principio",
+    "descripcion": "Alertar turnos proximos",
+    "evidencia": "En inicio de sesion, consultar: SELECT * FROM salud WHERE estado='pendiente' AND fecha >= date('now') AND fecha <= date('now', '+3 days'). Mostrar como alerta urgente.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_salud",
+    "categoria": "principio",
+    "descripcion": "No diagnosticar",
+    "evidencia": "ARGOS registra y alerta, nunca diagnostica ni recomienda tratamientos. Solo reproduce lo que dijo el profesional.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_telegram",
+    "categoria": "flujo",
+    "descripcion": "Arrancar bridge",
+    "evidencia": "Verificar si loop.py esta corriendo (ps aux | grep loop.py). Si no, ofrecer arrancarlo con nohup. El bridge escribe al inbox JSONL, Claude Code lee con bridge.py --check.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_telegram",
+    "categoria": "flujo",
+    "descripcion": "Procesar mensaje de texto",
+    "evidencia": "loop.py recibe > escribir_mensaje('in', contenido) al inbox > Claude Code lee > procesa > responder() envia a Telegram Y registra en inbox.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_telegram",
+    "categoria": "flujo",
+    "descripcion": "Procesar audio",
+    "evidencia": "loop.py recibe voice > download_voice() > stt.transcribe() con Whisper small > escribir_mensaje('in', transcripcion, tipo='audio') > procesar como texto.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_telegram",
+    "categoria": "principio",
+    "descripcion": "Canal lo controla el usuario",
+    "evidencia": "El usuario abre y cierra el canal Telegram. ARGOS puede proponer cerrar pero no decidirlo. Si el usuario escribe por PC, no mandar por Telegram.",
+    "sugerencia": null,
+    "compartido": 1
+  },
+  {
+    "tipo": "protocolo_telegram",
+    "categoria": "principio",
+    "descripcion": "Nunca silencio mayor a 20 seg",
+    "evidencia": "Si algo tarda, avisar 'procesando, X seg'. El usuario no debe quedarse esperando sin feedback.",
     "sugerencia": null,
     "compartido": 1
   }
