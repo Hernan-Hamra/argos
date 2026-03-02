@@ -22,6 +22,16 @@ venv/
 # Imágenes generadas en projects
 projects/**/*.png
 
+# Node.js
+node_modules/
+package-lock.json
+
+# WhatsApp auth sessions (datos de sesión personal)
+wwjs_auth/
+auth_info/
+.wwebjs_cache/
+temp/
+
 # OS
 Thumbs.db
 .DS_Store
