@@ -244,6 +244,8 @@ CAPA 1: DATOS
 | RF-COM-03 | **Lectura de emails**: detectar circulares, novedades de COMPR.AR, BAC, proveedores.                         | ALTA | PENDIENTE |
 | RF-COM-04 | **Ambos lados ven Q&A**: si pregunto por Telegram, ver respuesta en PC y viceversa.                          | ALTA | PARCIAL                     |
 | RF-COM-05 | **Regla de comunicacion**: en pedidos operativos, ir directo al punto.                                       | -    | EXISTE (protocolo)          |
+| RF-COM-06 | **Comunicacion always-on en nube**: Telegram y WhatsApp corren en servidor cloud 24/7. El usuario no necesita la PC encendida para recibir/enviar mensajes. Bot Telegram + sesion Baileys persistente en container. | ALTA | NO EXISTE |
+| RF-COM-07 | **Acceso remoto a archivos**: si el usuario tiene sus archivos en la nube (OneDrive, Google Drive, o storage propio), ARGOS cloud accede a ellos. Permite trabajar con documentos a distancia sin la PC local. | ALTA | NO EXISTE |
 
 ### 2.6 MODULO: Herramientas de Licitaciones
 
@@ -718,6 +720,18 @@ Principio definido: **se comparte el PROCESO, nunca la DATA.** 3 niveles: (1) us
 #### ALERTA 7 — Marco legal y consentimiento [ALTA]
 Normativa: Ley 25.326 (Habeas Data Argentina), GDPR (UE), CCPA (California). Falta: texto legal T&C, flujo consentimiento onboarding, mecanismo borrado total (derecho al olvido), log auditoria, politica retencion, tratamiento datos menores.
 
+#### ALERTA 8 — Comunicacion always-on (Telegram + WhatsApp en nube) [ALTA]
+Hoy Telegram y WhatsApp dependen de la PC encendida. En nube, corren 24/7 en container.
+**Componentes:** (1) Bot Telegram en container con reconnect automatico, (2) Sesion Baileys persistente (WhatsApp Web) con auth guardada en volumen, (3) Cola de mensajes para cuando ARGOS procesa.
+**Riesgo WhatsApp:** Meta puede banear sesiones cloud. Mitigar con: delays humanos, rotacion IP, limite diario, no envio masivo desde cloud.
+**Impacto:** RF-COM-06. Requiere A2 (credenciales por usuario) y A3 (archivos privados).
+
+#### ALERTA 9 — Acceso remoto a archivos del usuario [ALTA]
+Si el usuario tiene archivos en OneDrive/Google Drive/storage propio, ARGOS cloud necesita acceso.
+**Opciones:** (1) Sync bidireccional con rclone (OneDrive, GDrive, S3), (2) Mount FUSE en el container, (3) API directa de cada proveedor.
+**Recomendacion:** rclone con config por usuario. Sync selectivo (solo carpetas autorizadas).
+**Impacto:** RF-COM-07. Requiere A3 (archivos privados por usuario).
+
 #### Checklist pre-deploy
 
 | # | Alerta | Prioridad | Bloqueante | Dependencias |
@@ -729,8 +743,10 @@ Normativa: Ley 25.326 (Habeas Data Argentina), GDPR (UE), CCPA (California). Fal
 | A5 | Paths hardcodeados | MEDIA | NO | — |
 | A6 | Proceso vs data | ALTA | SI para comunidad | A1, A2, A3 |
 | A7 | Marco legal | ALTA | SI para produccion | Asesoria legal |
+| A8 | Comunicacion always-on | ALTA | SI para cloud | A2, A3 |
+| A9 | Acceso remoto archivos | ALTA | NO (mejora) | A3 |
 
-**Orden recomendado:** A5 (simple, desbloquea testing) → A1 → A2 → A3 → A4 → A6 → A7
+**Orden recomendado:** A5 (simple, desbloquea testing) → A1 → A2 → A3 → A8 → A4 → A6 → A9 → A7
 
 ---
 
