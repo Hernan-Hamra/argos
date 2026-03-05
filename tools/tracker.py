@@ -8,18 +8,12 @@ import sqlite3
 import os
 from datetime import datetime, date
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'argos_tracker.db')
+from tools.config import DB_PATH, get_connection as _config_get_connection
 
 
 def get_connection():
-    """Conectar a la DB. Crea directorio data/ si no existe."""
-    db_dir = os.path.dirname(DB_PATH)
-    if not os.path.exists(db_dir):
-        os.makedirs(db_dir)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    """Conectar a la DB. Usa config centralizado."""
+    return _config_get_connection()
 
 # Alias para que el código de capacidades no se rompa
 get_connection_sistema = get_connection
@@ -67,10 +61,22 @@ def init_db():
         recordatorio TEXT, resultado TEXT,
         created_at TEXT DEFAULT (datetime('now','localtime')),
         completed_at TEXT,
+        responsable TEXT DEFAULT 'yo',
+        tipo TEXT DEFAULT 'tarea',
         FOREIGN KEY (evento_id) REFERENCES eventos(id),
         FOREIGN KEY (proyecto_id) REFERENCES proyectos(id),
         FOREIGN KEY (persona_id) REFERENCES personas(id)
     )''')
+
+    # Migración: agregar columnas si no existen (para DBs existentes)
+    try:
+        c.execute('ALTER TABLE seguimiento ADD COLUMN responsable TEXT DEFAULT "yo"')
+    except Exception:
+        pass
+    try:
+        c.execute('ALTER TABLE seguimiento ADD COLUMN tipo TEXT DEFAULT "tarea"')
+    except Exception:
+        pass
 
     c.execute('''CREATE TABLE IF NOT EXISTS fechas_importantes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -309,6 +315,65 @@ def init_db():
         activo INTEGER DEFAULT 1,
         created_at TEXT DEFAULT (datetime('now','localtime'))
     )''')
+
+    # === RUTINAS (motor de rutinas automáticas) ===
+
+    c.execute('''CREATE TABLE IF NOT EXISTS rutinas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre TEXT NOT NULL,
+        descripcion TEXT,
+        frecuencia TEXT NOT NULL DEFAULT 'diaria',  -- diaria, semanal, mensual
+        hora_objetivo TEXT,                          -- HH:MM (hora sugerida)
+        dias_semana TEXT,                            -- "lun,mar,mie" (para semanal)
+        modulo TEXT,                                 -- bienestar, nutricion, ejercicio, etc.
+        preguntas TEXT,                              -- JSON: preguntas a hacer
+        campos_registro TEXT,                        -- JSON: campos a registrar en tabla destino
+        tabla_destino TEXT DEFAULT 'bienestar',
+        estado TEXT DEFAULT 'activa',                -- activa, pausada, archivada
+        ultima_ejecucion TEXT,                       -- YYYY-MM-DD
+        racha_dias INTEGER DEFAULT 0,                -- días consecutivos cumplidos
+        max_racha INTEGER DEFAULT 0,
+        veces_ejecutada INTEGER DEFAULT 0,
+        veces_omitida INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now','localtime'))
+    )''')
+
+    # Seed rutinas si tabla vacía
+    if c.execute("SELECT COUNT(*) FROM rutinas").fetchone()[0] == 0:
+        import json as _json
+        rutinas_seed = [
+            ('Checkpoint apertura', 'Preguntas de bienestar al abrir sesión',
+             'diaria', '09:00', None, 'bienestar',
+             _json.dumps(['¿Cómo dormiste?', '¿Energía y humor?', '¿Nivel de estrés?', '¿Ejercicio?', '¿Familia?']),
+             _json.dumps(['horas_sueno', 'humor', 'energia', 'estres', 'ejercicio_min', 'atencion_familia']),
+             'bienestar'),
+            ('Checkpoint cierre', 'Reflexión al cerrar sesión',
+             'diaria', '20:00', None, 'bienestar',
+             _json.dumps(['¿Qué salió bien?', '¿Qué frustró?', '¿Energía y estrés final?']),
+             _json.dumps(['logros', 'frustraciones', 'energia', 'estres']),
+             'bienestar'),
+            ('Registro almuerzo', 'Registrar comida del mediodía',
+             'diaria', '13:00', None, 'nutricion',
+             _json.dumps(['¿Qué almorzaste?']),
+             _json.dumps(['comida', 'descripcion']),
+             'nutricion'),
+            ('Registro cena', 'Registrar comida de la noche',
+             'diaria', '21:00', None, 'nutricion',
+             _json.dumps(['¿Qué cenaste?']),
+             _json.dumps(['comida', 'descripcion']),
+             'nutricion'),
+            ('Ejercicio diario', '¿Hiciste actividad física?',
+             'diaria', '19:00', None, 'ejercicio',
+             _json.dumps(['¿Hiciste ejercicio? ¿Qué y cuánto tiempo?']),
+             _json.dumps(['ejercicio_min']),
+             'bienestar'),
+        ]
+        c.executemany(
+            """INSERT INTO rutinas (nombre, descripcion, frecuencia, hora_objetivo,
+               dias_semana, modulo, preguntas, campos_registro, tabla_destino)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            rutinas_seed
+        )
 
     # Seed checkpoints si tabla vacía
     if c.execute("SELECT COUNT(*) FROM checkpoints").fetchone()[0] == 0:
@@ -838,17 +903,54 @@ def marcar_reflexion_revisada(reflexion_id):
 
 
 def add_seguimiento(accion, fecha_limite=None, proyecto_id=None, persona_id=None,
-                    evento_id=None, prioridad='media'):
+                    evento_id=None, prioridad='media', auto_agenda=True,
+                    responsable=None, tipo=None):
+    """Crear seguimiento con clasificación automática.
+    Si no se pasan responsable/tipo, se clasifican por código analizando el texto.
+    Tipos: tarea/comunicar/cobro/entregar/visita/investigar/vencimiento/espera/decidir.
+    Responsable: yo/otro."""
+    # Auto-clasificar si no se especifica
+    auto_clasificado = False
+    confianza = 'alta'
+    if responsable is None or tipo is None:
+        from tools.parsear_respuesta import clasificar_seguimiento
+        clasif = clasificar_seguimiento(accion, persona_id)
+        if responsable is None:
+            responsable = clasif['responsable']
+            auto_clasificado = True
+        if tipo is None:
+            tipo = clasif['tipo']
+            auto_clasificado = True
+        confianza = clasif['confianza']
+
     conn = get_connection()
     c = conn.cursor()
     c.execute('''INSERT INTO seguimiento (evento_id, proyecto_id, persona_id, accion,
-                 fecha_limite, prioridad)
-                 VALUES (?, ?, ?, ?, ?, ?)''',
-              (evento_id, proyecto_id, persona_id, accion, fecha_limite, prioridad))
+                 fecha_limite, prioridad, responsable, tipo)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+              (evento_id, proyecto_id, persona_id, accion, fecha_limite, prioridad,
+               responsable, tipo))
     sid = c.lastrowid
+
+    # Auto-sync: crear entry en agenda si tiene fecha_limite
+    if auto_agenda and fecha_limite:
+        c.execute('''INSERT INTO agenda (fecha, titulo, tipo, proyecto_id, persona_id,
+                     descripcion, estado)
+                     VALUES (?, ?, 'tarea', ?, ?, ?, 'pendiente')''',
+                  (fecha_limite, accion[:120], proyecto_id, persona_id,
+                   f'[auto-sync desde seguimiento #{sid}]'))
+
     conn.commit()
     conn.close()
-    return sid
+
+    # Retornar info completa para que ARGOS pueda mostrar y preguntar
+    return {
+        'id': sid,
+        'responsable': responsable,
+        'tipo': tipo,
+        'auto_clasificado': auto_clasificado,
+        'confianza': confianza,
+    }
 
 
 def add_fecha_importante(persona_id, tipo, fecha, descripcion=None, fecha_hebreo=None):
@@ -937,6 +1039,90 @@ def get_pendientes(incluir_vencidos=True):
     rows = c.fetchall()
     conn.close()
     return rows
+
+
+def get_pendientes_agrupados():
+    """Pendientes agrupados en 3 bloques: mis compromisos, terceros, vencimientos.
+    Retorna dict con estructura para mostrar en apertura."""
+    conn = get_connection()
+    hoy = date.today().isoformat()
+
+    rows = conn.execute('''SELECT s.*, p.nombre as proyecto, pe.nombre as persona
+                 FROM seguimiento s
+                 LEFT JOIN proyectos p ON s.proyecto_id = p.id
+                 LEFT JOIN personas pe ON s.persona_id = pe.id
+                 WHERE s.estado IN ('pendiente', 'en_curso', 'vencido', 'en_espera')
+                 ORDER BY s.prioridad DESC, s.fecha_limite ASC''').fetchall()
+    conn.close()
+
+    mis = {}  # tipo -> lista
+    terceros = {}  # tipo -> lista
+    vencimientos = []
+
+    for r in rows:
+        r = dict(r)
+        # Calcular días vencido
+        if r.get('fecha_limite') and r['fecha_limite'] < hoy:
+            dias = (date.today() - datetime.strptime(r['fecha_limite'], '%Y-%m-%d').date()).days
+            r['dias_vencido'] = dias
+
+        if r.get('tipo') == 'vencimiento':
+            vencimientos.append(r)
+        elif r.get('responsable') == 'otro':
+            tipo = r.get('tipo', 'espera')
+            terceros.setdefault(tipo, []).append(r)
+        else:
+            tipo = r.get('tipo', 'tarea')
+            mis.setdefault(tipo, []).append(r)
+
+    return {
+        'mis_compromisos': mis,
+        'mis_total': sum(len(v) for v in mis.values()),
+        'compromisos_terceros': terceros,
+        'terceros_total': sum(len(v) for v in terceros.values()),
+        'vencimientos': vencimientos,
+        'vencimientos_total': len(vencimientos),
+    }
+
+
+def get_status_proyectos():
+    """Status rápido de cada proyecto activo con pendientes."""
+    conn = get_connection()
+    hoy = date.today().isoformat()
+
+    rows = conn.execute('''
+        SELECT p.id, p.nombre, p.estado, p.tipo as ambito, p.categoria,
+               (SELECT COUNT(*) FROM seguimiento s
+                WHERE s.proyecto_id = p.id
+                AND s.estado IN ('pendiente', 'en_curso', 'vencido', 'en_espera')) as total_pend,
+               (SELECT COUNT(*) FROM seguimiento s
+                WHERE s.proyecto_id = p.id
+                AND s.estado IN ('pendiente', 'en_curso', 'vencido', 'en_espera')
+                AND s.fecha_limite < ?) as vencidos,
+               (SELECT MAX(e.fecha) FROM eventos e
+                WHERE e.proyecto_id = p.id) as ultimo_mov
+        FROM proyectos p
+        WHERE p.estado IN ('activo', 'cotizacion')
+        AND total_pend > 0
+        ORDER BY vencidos DESC, total_pend DESC
+    ''', (hoy,)).fetchall()
+    conn.close()
+
+    laborales = []
+    personales = []
+    for r in rows:
+        r = dict(r)
+        ultimo = r.get('ultimo_mov')
+        if ultimo:
+            dias_sin = (date.today() - datetime.strptime(ultimo, '%Y-%m-%d').date()).days
+            r['dias_sin_actividad'] = dias_sin
+        else:
+            r['dias_sin_actividad'] = None
+        if r.get('ambito') == 'personal':
+            personales.append(r)
+        else:
+            laborales.append(r)
+    return {'laboral': laborales, 'personal': personales}
 
 
 def get_agenda_dia(fecha=None):
@@ -2108,6 +2294,464 @@ def estado_proyectos(exportar=False, proyecto_id=None):
             f.write(texto)
 
     return texto
+
+
+DIAS_SEMANA = {0: 'Lun', 1: 'Mar', 2: 'Mie', 3: 'Jue', 4: 'Vie', 5: 'Sab', 6: 'Dom'}
+DIAS_SEMANA_LARGO = {0: 'LUNES', 1: 'MARTES', 2: 'MIERCOLES', 3: 'JUEVES', 4: 'VIERNES', 5: 'SABADO', 6: 'DOMINGO'}
+PRIO_ORDEN = {'critica': 0, 'urgente': 1, 'alta': 2, 'media': 3, 'baja': 4}
+
+# Palabras clave para clasificar ESPERAR vs HACER
+_PALABRAS_ESPERAR = [
+    'esperar', 'esperando', 'espera ', 'en manos de', 'queda de su lado',
+    'monitorear', 'verificar que se', 'dar seguimiento', 'seguimiento ',
+    'aguardar', 'pendiente de respuesta', 'respuesta de', 'rta ',
+    'ya enviado', 'ya pedid', 'ya avisad', 'confirmar que',
+]
+
+
+def _clasificar_hacer_esperar(texto):
+    """Clasifica un item como HACER o ESPERAR por palabras clave."""
+    txt = texto.lower()
+    for palabra in _PALABRAS_ESPERAR:
+        if palabra in txt:
+            return 'ESPERAR'
+    return 'HACER'
+
+
+def agenda_inteligente(vista='apertura', fecha_ref=None):
+    """
+    Vista unificada de agenda con clasificacion HACER/ESPERAR/DECIDIR.
+    vista: 'apertura' (dia + semana + decidir + hitos)
+           'hoy', 'semana', 'mes'
+    Retorna texto formateado.
+    """
+    from datetime import timedelta
+    conn = get_connection()
+    c = conn.cursor()
+
+    if fecha_ref is None:
+        fecha_ref = date.today()
+    elif isinstance(fecha_ref, str):
+        fecha_ref = date.fromisoformat(fecha_ref)
+
+    lineas = []
+
+    if vista == 'apertura':
+        lineas.append(_bloque_dia_hacer_esperar(c, fecha_ref))
+        lineas.append('')
+        lineas.append(_bloque_semana_compacto(c, fecha_ref))
+        lineas.append('')
+        lineas.append(_bloque_decidir(c, fecha_ref))
+        lineas.append('')
+        lineas.append(_bloque_hitos_mes(c, fecha_ref))
+
+    elif vista == 'hoy':
+        lineas.append(_bloque_dia_hacer_esperar(c, fecha_ref))
+
+    elif vista == 'semana':
+        lineas.append(_bloque_semana_completo(c, fecha_ref))
+
+    elif vista == 'mes':
+        lineas.append(_bloque_mes(c, fecha_ref))
+
+    conn.close()
+    return '\n'.join(lineas)
+
+
+def _obtener_items_dia(c, dia):
+    """Obtiene todos los items de un dia (agenda + seguimientos), deduplicados y clasificados."""
+    # Items de agenda
+    c.execute('''SELECT a.id, a.titulo, a.tipo, a.hora, a.estado, a.descripcion,
+                        p.nombre as proyecto, pe.nombre as persona
+                 FROM agenda a
+                 LEFT JOIN proyectos p ON a.proyecto_id = p.id
+                 LEFT JOIN personas pe ON a.persona_id = pe.id
+                 WHERE a.fecha = ? AND a.estado != 'cancelado'
+                 ORDER BY a.hora ASC''', (dia.isoformat(),))
+    items = []
+    titulos_usados = set()
+    for r in c.fetchall():
+        r = dict(r)
+        clase = _clasificar_hacer_esperar(r['titulo'] + ' ' + (r['descripcion'] or ''))
+        hora = r['hora'] if r['hora'] and r['hora'] not in ('--:--', 'hoy', 'cierre') else None
+        items.append({
+            'texto': r['titulo'][:80],
+            'clase': clase,
+            'prio': 'alta',
+            'hora': hora,
+            'estado': r['estado'],
+            'fuente': 'agenda',
+            'proyecto': r['proyecto'],
+            'persona': r['persona'],
+        })
+        titulos_usados.add(r['titulo'][:30].lower().strip())
+
+    # Items de seguimiento (deduplicados)
+    c.execute('''SELECT s.id, s.accion, s.prioridad, s.estado,
+                        p.nombre as proyecto, pe.nombre as persona
+                 FROM seguimiento s
+                 LEFT JOIN proyectos p ON s.proyecto_id = p.id
+                 LEFT JOIN personas pe ON s.persona_id = pe.id
+                 WHERE s.fecha_limite = ?
+                 AND s.estado NOT IN ('completado', 'cerrado', 'cancelado')
+                 ORDER BY CASE s.prioridad
+                   WHEN 'critica' THEN 0 WHEN 'urgente' THEN 1
+                   WHEN 'alta' THEN 2 WHEN 'media' THEN 3 ELSE 4 END''',
+              (dia.isoformat(),))
+    for r in c.fetchall():
+        r = dict(r)
+        if _es_duplicado(r['accion'], titulos_usados):
+            continue
+        clase = _clasificar_hacer_esperar(r['accion'])
+        items.append({
+            'texto': r['accion'][:80],
+            'clase': clase,
+            'prio': r['prioridad'],
+            'hora': None,
+            'estado': r['estado'],
+            'fuente': 'seguimiento',
+            'proyecto': r['proyecto'],
+            'persona': r['persona'],
+        })
+        titulos_usados.add(r['accion'][:30].lower().strip())
+
+    return items
+
+
+# Palabras que se ignoran al comparar textos para deduplicacion
+_STOP_WORDS = {'a', 'de', 'del', 'la', 'el', 'los', 'las', 'en', 'con', 'por',
+               'para', 'que', 'y', 'o', 'un', 'una', 'ya', 'es', 'se', 'su',
+               'al', 'como', 'mas', 'si', 'no', 'mi', 'le', 'lo'}
+
+
+def _normalizar_texto(texto):
+    """Normaliza texto para comparacion: minusculas, sin acentos, sin stop words."""
+    import re
+    txt = texto.lower().strip()
+    for ac, si in [('á','a'),('é','e'),('í','i'),('ó','o'),('ú','u'),('ñ','n'),('ü','u')]:
+        txt = txt.replace(ac, si)
+    txt = re.sub(r'[^a-z0-9\s]', ' ', txt)
+    palabras = [p for p in txt.split() if p not in _STOP_WORDS and len(p) > 2]
+    return set(palabras[:8])  # primeras 8 palabras significativas
+
+
+def _es_duplicado(texto_nuevo, titulos_existentes):
+    """Detecta si un texto es duplicado de alguno existente (por overlap de palabras)."""
+    palabras_nuevo = _normalizar_texto(texto_nuevo)
+    if not palabras_nuevo:
+        return False
+    for titulo_existente in titulos_existentes:
+        palabras_existente = _normalizar_texto(titulo_existente)
+        if not palabras_existente:
+            continue
+        # Si comparten 60%+ de palabras clave, es duplicado
+        interseccion = palabras_nuevo & palabras_existente
+        menor = min(len(palabras_nuevo), len(palabras_existente))
+        if menor > 0 and len(interseccion) / menor >= 0.6:
+            return True
+    return False
+
+
+def _bloque_dia_hacer_esperar(c, dia):
+    """Bloque del dia con seccion HACER y ESPERAR separadas."""
+    ds = DIAS_SEMANA_LARGO[dia.weekday()]
+    items = _obtener_items_dia(c, dia)
+
+    hacer = [i for i in items if i['clase'] == 'HACER']
+    esperar = [i for i in items if i['clase'] == 'ESPERAR']
+
+    # Ordenar hacer por prioridad
+    hacer.sort(key=lambda x: PRIO_ORDEN.get(x['prio'], 3))
+    esperar.sort(key=lambda x: PRIO_ORDEN.get(x['prio'], 3))
+
+    lineas = []
+    lineas.append(f"{'=' * 54}")
+    lineas.append(f"  {ds} {dia.day:02d}/{dia.month:02d}/{dia.year}")
+    lineas.append(f"{'=' * 54}")
+
+    # HACER
+    lineas.append('')
+    lineas.append(f"  HACER ({len(hacer)} acciones)")
+    lineas.append(f"  {'─' * 48}")
+    if not hacer:
+        lineas.append(f"    Sin acciones para hoy")
+    else:
+        for i, item in enumerate(hacer, 1):
+            hora = f" {item['hora']}" if item['hora'] else ''
+            ctx = ''
+            if item['persona']:
+                ctx = f" -> {item['persona']}"
+            elif item['proyecto']:
+                ctx = f" [{item['proyecto'][:15]}]"
+            lineas.append(f"    {i}. {item['texto'][:65]}{hora}{ctx}")
+
+    # ESPERAR
+    if esperar:
+        lineas.append('')
+        lineas.append(f"  ESPERAR ({len(esperar)} en curso)")
+        lineas.append(f"  {'─' * 48}")
+        for item in esperar:
+            quien = f" ({item['persona']})" if item['persona'] else ''
+            lineas.append(f"    ~ {item['texto'][:65]}{quien}")
+
+    return '\n'.join(lineas)
+
+
+def _bloque_semana_compacto(c, dia_inicio):
+    """Vista semanal compacta: una linea por item, agrupado por dia."""
+    from datetime import timedelta
+    lineas = []
+    lineas.append(f"  SEMANA {dia_inicio.day:02d}/{dia_inicio.month:02d} al {(dia_inicio + timedelta(days=6)).day:02d}/{(dia_inicio + timedelta(days=6)).month:02d}")
+    lineas.append(f"  {'─' * 48}")
+
+    for i in range(1, 7):  # skip hoy (ya se mostro arriba)
+        dia = dia_inicio + timedelta(days=i)
+        items = _obtener_items_dia(c, dia)
+        if not items:
+            continue
+        ds = DIAS_SEMANA[dia.weekday()]
+        hacer = [x for x in items if x['clase'] == 'HACER']
+        esperar = [x for x in items if x['clase'] == 'ESPERAR']
+        hacer.sort(key=lambda x: PRIO_ORDEN.get(x['prio'], 3))
+
+        lineas.append(f"  {ds} {dia.day:02d}/{dia.month:02d} ({len(hacer)}H/{len(esperar)}E)")
+        for item in hacer[:5]:
+            lineas.append(f"    > {item['texto'][:60]}")
+        if esperar:
+            lineas.append(f"    ~ {len(esperar)} esperando")
+
+    return '\n'.join(lineas)
+
+
+def _bloque_semana_completo(c, dia_inicio):
+    """Vista semanal completa con HACER/ESPERAR por dia."""
+    from datetime import timedelta
+    lineas = []
+    for i in range(7):
+        dia = dia_inicio + timedelta(days=i)
+        items = _obtener_items_dia(c, dia)
+        if not items:
+            continue
+        lineas.append(_bloque_dia_hacer_esperar(c, dia))
+        lineas.append('')
+    return '\n'.join(lineas)
+
+
+def _bloque_decidir(c, fecha_ref):
+    """Bloque DECIDIR: seguimientos vencidos que requieren accion."""
+    c.execute('''SELECT s.id, s.accion, s.prioridad, s.fecha_limite, s.estado,
+                        p.nombre as proyecto, pe.nombre as persona
+                 FROM seguimiento s
+                 LEFT JOIN proyectos p ON s.proyecto_id = p.id
+                 LEFT JOIN personas pe ON s.persona_id = pe.id
+                 WHERE s.fecha_limite < ?
+                 AND s.estado NOT IN ('completado', 'cerrado', 'cancelado')
+                 ORDER BY CASE s.prioridad
+                   WHEN 'critica' THEN 0 WHEN 'urgente' THEN 1
+                   WHEN 'alta' THEN 2 WHEN 'media' THEN 3 ELSE 4 END,
+                 s.fecha_limite ASC''', (fecha_ref.isoformat(),))
+    vencidos = [dict(r) for r in c.fetchall()]
+
+    lineas = []
+    if not vencidos:
+        return '  DECIDIR: Todo al dia!'
+
+    lineas.append(f"  DECIDIR ({len(vencidos)} vencidos - mover, hacer o cancelar)")
+    lineas.append(f"  {'─' * 48}")
+
+    # Agrupar por prioridad
+    criticos = [v for v in vencidos if v['prioridad'] in ('critica', 'urgente')]
+    resto = [v for v in vencidos if v['prioridad'] not in ('critica', 'urgente')]
+
+    for v in criticos[:5]:
+        dias = (fecha_ref - date.fromisoformat(v['fecha_limite'])).days
+        quien = f" ({v['persona']})" if v['persona'] else ''
+        lineas.append(f"    !! [{v['prioridad'].upper()}] {v['accion'][:55]}{quien} ({dias}d)")
+
+    for v in resto[:8]:
+        dias = (fecha_ref - date.fromisoformat(v['fecha_limite'])).days
+        lineas.append(f"    ?  {v['accion'][:60]} ({dias}d)")
+
+    if len(vencidos) > 13:
+        lineas.append(f"    ... y {len(vencidos) - 13} mas")
+
+    return '\n'.join(lineas)
+
+
+def _bloque_hitos_mes(c, fecha_ref):
+    """Hitos y deadlines del mes restante."""
+    if fecha_ref.month == 12:
+        ultimo = fecha_ref.replace(year=fecha_ref.year + 1, month=1, day=1)
+    else:
+        ultimo = fecha_ref.replace(month=fecha_ref.month + 1, day=1)
+
+    c.execute('''SELECT fecha, titulo, tipo FROM agenda
+                 WHERE fecha BETWEEN ? AND ? AND estado != 'cancelado'
+                 AND tipo IN ('deadline', 'entrega', 'visita', 'reunion')
+                 ORDER BY fecha ASC''',
+              (fecha_ref.isoformat(), ultimo.isoformat()))
+    hitos = [dict(r) for r in c.fetchall()]
+
+    lineas = []
+    if not hitos:
+        return '  HITOS MES: Sin hitos pendientes'
+
+    lineas.append(f"  HITOS DEL MES")
+    lineas.append(f"  {'─' * 48}")
+    for h in hitos:
+        ds = DIAS_SEMANA[date.fromisoformat(h['fecha']).weekday()]
+        lineas.append(f"    {ds} {h['fecha'][8:]}/{h['fecha'][5:7]} | {h['titulo'][:55]}")
+
+    return '\n'.join(lineas)
+
+
+def _bloque_mes(c, fecha_ref):
+    """Vista mensual completa."""
+    from datetime import timedelta
+    if fecha_ref.month == 12:
+        mes_fin = fecha_ref.replace(year=fecha_ref.year + 1, month=1, day=1)
+    else:
+        mes_fin = fecha_ref.replace(month=fecha_ref.month + 1, day=1)
+    dias_mes = (mes_fin - fecha_ref).days
+
+    lineas = []
+    lineas.append(f"{'=' * 54}")
+    lineas.append(f"  MARZO 2026")
+    lineas.append(f"{'=' * 54}")
+
+    semana_actual = None
+    for i in range(dias_mes):
+        dia = fecha_ref + timedelta(days=i)
+        num_semana = dia.isocalendar()[1]
+        items = _obtener_items_dia(c, dia)
+        if not items:
+            continue
+        if num_semana != semana_actual:
+            semana_actual = num_semana
+            lineas.append(f"\n  --- Semana {num_semana} ---")
+        hacer = [x for x in items if x['clase'] == 'HACER']
+        esperar = [x for x in items if x['clase'] == 'ESPERAR']
+        ds = DIAS_SEMANA[dia.weekday()]
+        marca = ' << HOY' if dia == date.today() else ''
+        lineas.append(f"  {ds} {dia.day:02d}/{dia.month:02d} ({len(hacer)}H/{len(esperar)}E){marca}")
+        for item in hacer[:3]:
+            lineas.append(f"    > {item['texto'][:55]}")
+        if len(hacer) > 3:
+            lineas.append(f"    > ...y {len(hacer)-3} mas")
+        if esperar:
+            lineas.append(f"    ~ {len(esperar)} esperando")
+
+    return '\n'.join(lineas)
+
+
+def mover_seguimiento(seguimiento_id, nueva_fecha):
+    """Mover un seguimiento a otra fecha."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('UPDATE seguimiento SET fecha_limite = ?, estado = ? WHERE id = ?',
+              (nueva_fecha, 'pendiente', seguimiento_id))
+    # Actualizar agenda si existe entry auto-sync
+    c.execute('''UPDATE agenda SET fecha = ? WHERE descripcion LIKE ?''',
+              (nueva_fecha, f'%seguimiento #{seguimiento_id}%'))
+    conn.commit()
+    conn.close()
+
+
+def cerrar_seguimiento(seguimiento_id, estado='completado'):
+    """Cerrar un seguimiento (completado, cancelado, cerrado)."""
+    conn = get_connection()
+    c = conn.cursor()
+    completed_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S') if estado == 'completado' else None
+    c.execute('UPDATE seguimiento SET estado = ?, completed_at = ? WHERE id = ?',
+              (estado, completed_at, seguimiento_id))
+    conn.commit()
+    conn.close()
+
+
+# === RUTINAS ===
+
+def get_rutinas(solo_activas=True):
+    """Obtener rutinas configuradas."""
+    conn = get_connection()
+    c = conn.cursor()
+    if solo_activas:
+        c.execute("SELECT * FROM rutinas WHERE estado='activa' ORDER BY hora_objetivo")
+    else:
+        c.execute("SELECT * FROM rutinas ORDER BY estado, hora_objetivo")
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
+def get_rutinas_pendientes():
+    """Rutinas que NO se ejecutaron hoy y ya pasó su hora objetivo."""
+    import json as _json
+    hoy = date.today().isoformat()
+    ahora = datetime.now().strftime('%H:%M')
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("""SELECT * FROM rutinas
+                 WHERE estado='activa'
+                 AND (ultima_ejecucion IS NULL OR ultima_ejecucion < ?)
+                 ORDER BY hora_objetivo""", (hoy,))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+
+    pendientes = []
+    for r in rows:
+        # Parsear preguntas JSON
+        try:
+            r['preguntas_lista'] = _json.loads(r['preguntas']) if r['preguntas'] else []
+        except Exception:
+            r['preguntas_lista'] = []
+        # Marcar si es overdue (pasó la hora)
+        r['overdue'] = r.get('hora_objetivo', '23:59') <= ahora
+        pendientes.append(r)
+
+    return pendientes
+
+
+def ejecutar_rutina(rutina_id, respuestas=None):
+    """Marcar rutina como ejecutada hoy. Actualizar racha."""
+    hoy = date.today().isoformat()
+    ayer = (date.today() - __import__('datetime').timedelta(days=1)).isoformat()
+    conn = get_connection()
+    c = conn.cursor()
+
+    c.execute("SELECT * FROM rutinas WHERE id = ?", (rutina_id,))
+    rutina = dict(c.fetchone())
+
+    # Actualizar racha
+    nueva_racha = (rutina['racha_dias'] or 0) + 1 if rutina.get('ultima_ejecucion') == ayer else 1
+    max_racha = max(nueva_racha, rutina.get('max_racha') or 0)
+
+    c.execute("""UPDATE rutinas SET
+                 ultima_ejecucion = ?, veces_ejecutada = veces_ejecutada + 1,
+                 racha_dias = ?, max_racha = ?
+                 WHERE id = ?""",
+              (hoy, nueva_racha, max_racha, rutina_id))
+    conn.commit()
+    conn.close()
+
+    return {
+        'rutina': rutina['nombre'],
+        'racha': nueva_racha,
+        'max_racha': max_racha,
+        'veces': (rutina.get('veces_ejecutada') or 0) + 1,
+    }
+
+
+def omitir_rutina(rutina_id):
+    """Registrar que se omitió la rutina hoy."""
+    hoy = date.today().isoformat()
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("""UPDATE rutinas SET
+                 ultima_ejecucion = ?, veces_omitida = veces_omitida + 1,
+                 racha_dias = 0
+                 WHERE id = ?""", (hoy, rutina_id))
+    conn.commit()
+    conn.close()
 
 
 if __name__ == '__main__':

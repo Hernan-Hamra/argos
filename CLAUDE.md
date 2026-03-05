@@ -27,7 +27,12 @@ Desarrollado por y para **Hernán Hamra** dentro de **Software By Design S.A.**
 C:\Users\HERNAN\argos\
 ├── CLAUDE.md                 ← este archivo (reglas del proyecto)
 ├── tools/                    ← módulos reutilizables
+│   ├── config.py            ← CONFIG CENTRALIZADO: paths, DB, tokens, plataforma (Win/Mac/Cloud)
 │   ├── tracker.py           ← DB: CRUD proyectos, personas, eventos, seguimiento, agenda, salud, metas
+│   ├── orquestador_sesion.py ← MOTOR PRINCIPAL: fuerza apertura/cierre por código
+│   ├── parsear_respuesta.py ← "dormí 7hs" → horas_sueno=7 (expresiones argentinas)
+│   ├── alertas.py           ← motor alertas rojas/amarillas, seguimientos vencidos
+│   ├── aprendizaje.py       ← registrar éxitos/errores, buscar soluciones conocidas
 │   ├── session.py           ← ciclo de sesión: abrir/checkpoint/cerrar
 │   ├── proactivo.py         ← nudges: áreas descuidadas, reflexiones, metas inactivas
 │   ├── coherencia.py        ← medir coherencia intención vs comportamiento
@@ -39,6 +44,8 @@ C:\Users\HERNAN\argos\
 │   ├── foliador.py          ← merge PDFs + numeración de folios
 │   ├── cotizacion.py        ← análisis de precios, IVA mix, álgebra inversa
 │   ├── excel_tools.py       ← lectura/escritura Excel
+│   ├── email_reader.py      ← lector IMAP: inbox, búsqueda, clasificación automática
+│   ├── resumen_periodico.py ← resumen semanal/mensual con insights automáticos
 │   ├── whatsapp_send.py     ← envío masivo WhatsApp via Baileys
 │   └── seeds/               ← patrones base para nuevos usuarios
 ├── agents/                   ← sistema multi-agente (7 agentes + orquestador)
@@ -55,10 +62,10 @@ C:\Users\HERNAN\argos\
 │   ├── sbase_410_26/        ← LP 410/26 SBASE cableado
 │   └── posadas_informe/     ← informes de avance Posadas
 ├── product/                  ← docs producto ARGOS
+│   ├── SRS_ARGOS.md         ← DOCUMENTO MAESTRO ÚNICO (1085 líneas, 12 secciones)
 │   ├── MEMORY_TEMPLATE.md   ← template base para nuevos usuarios
-│   ├── BACKLOG.md           ← features priorizadas P0-P3
-│   ├── PLAN_NEGOCIO.md      ← plan de negocio
-│   └── *.md                 ← alcance, casos de uso, flujo, decisiones, competencia
+│   ├── PROTOCOLO_WHATSAPP_MASIVO.md ← manual operativo WhatsApp
+│   └── archivo_historico/   ← backup de 13 archivos absorbidos por el SRS
 ├── templates/                ← templates .docx reutilizables
 ├── data/                     ← argos_tracker.db (NO va a git)
 └── output/                   ← archivos temporales generados
@@ -98,6 +105,12 @@ C:\Users\HERNAN\argos\
 | Auto-aprendizaje | .claude/hooks/auto_aprendizaje.py, patterns.py |
 | Marketing masivo WhatsApp | whatsapp_send.py, wapp_baileys/ |
 | Nutrición y salud | tracker.py (tablas salud, nutricion) |
+
+## Catálogo de capacidades
+- **Fuente de verdad:** DB (`SELECT * FROM patrones WHERE tipo LIKE 'protocolo_%' AND estado='validado'`)
+- **Estado actual:** 107 protocolos validados en 15 tipos de protocolo
+- **Documento de referencia:** `product/SRS_ARGOS.md` sección 6
+- Si ARGOS aprende capacidad nueva: registrar en patrones → actualizar MEMORY.md → exportar seed → git push
 
 ## Patrones técnicos clave
 

@@ -6,8 +6,7 @@ import shutil
 import os
 from datetime import datetime
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'argos_tracker.db')
-BACKUP_DIR = os.path.join(os.path.expanduser('~'), 'OneDrive', '1. ORGANIZACION FLIA', 'ARGOS_BACKUP')
+from tools.config import DB_PATH, BACKUP_DIR
 
 
 def backup_db():

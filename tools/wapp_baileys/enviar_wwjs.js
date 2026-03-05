@@ -12,7 +12,7 @@
 
 import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth, MessageMedia } = pkg;
-import { readFileSync, existsSync, readdirSync, writeFileSync, copyFileSync, mkdirSync } from 'fs';
+import { readFileSync, existsSync, readdirSync, writeFileSync, copyFileSync, mkdirSync, renameSync } from 'fs';
 import { execSync } from 'child_process';
 import path from 'path';
 import qrcode from 'qrcode-terminal';
@@ -20,18 +20,41 @@ import qrcode from 'qrcode-terminal';
 // ---------- CONFIG ----------
 const PURIM_DIR = 'C:\\Users\\HERNAN\\OneDrive\\PRUEBA ARGOS NATALIA\\PURIM_5786';
 const IMAGENES_DIR = path.join(PURIM_DIR, 'imagenes');
+const NO_ENVIADAS_DIR = path.join(IMAGENES_DIR, 'no_enviadas');
+const ENVIADAS_DIR = path.join(IMAGENES_DIR, 'enviadas');
+const CARTAS_NO_ENV = path.join(PURIM_DIR, 'cartas', 'no_enviadas');
+const CARTAS_ENV = path.join(PURIM_DIR, 'cartas', 'enviadas');
 const EXCEL_PATH = path.join(PURIM_DIR, 'listado purim 5786 full.xlsx');
 const TEMP_DIR = path.resolve('./temp');
 
-// Anti-ban: tiempos entre envíos
-const DELAY_ENTRE_MENSAJES = 2000;   // 2 seg entre texto/carta/pdf del mismo contacto
-const DELAY_ENTRE_CONTACTOS = 5000;  // 5 seg entre contactos
-const DELAY_ENTRE_TANDAS = 60000;    // 1 min entre tandas
-const TANDA_SIZE = 30;               // contactos por tanda
+// Anti-ban V2: delays aleatorios + tandas + variaciones texto
+// Config "envío masivo 1 día" — ~6-7hs para 126 contactos
+const DELAY_MSG_MIN = 5000;          // 5-10 seg entre texto/carta/pdf del mismo contacto
+const DELAY_MSG_MAX = 10000;
+const DELAY_POST_PDF_MIN = 15000;    // 15-30 seg después del PDF (upload pesado)
+const DELAY_POST_PDF_MAX = 30000;
+const DELAY_CONTACTO_MIN = 25000;    // 25-50 seg entre contactos
+const DELAY_CONTACTO_MAX = 50000;
+const DELAY_TANDA_MIN = 600000;      // 10-20 min entre tandas
+const DELAY_TANDA_MAX = 1200000;
+const TANDA_SIZE = 8;                // 8 contactos por tanda
+const LIMITE_DIARIO = 6;
+
+// WHITELIST: solo enviar a estos contactos (aprobados por Hernán)
+// Si está vacío, envía todos los PENDIENTE/REENVIAR del Excel
+const WHITELIST = [
+    'Alan Muller', 'Ilan Olkies', 'Gustavo Rubinsztein',
+    'Ruben Ezra Saiegh', 'Aki Slelatt', 'Adrián Wais',
+].map(n => normalizar(n));
 
 // ---------- HELPERS ----------
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+/** Delay aleatorio entre min y max ms */
+function randomDelay(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 
 /** Normaliza texto: lowercase, trim, quita acentos */
 function normalizar(texto) {
@@ -51,18 +74,38 @@ function findMeguilat() {
 
 const MEGUILAT_PDF = findMeguilat();
 
-// Cartas JPG disponibles (leídas del filesystem)
+// Cartas JPG disponibles (solo de no_enviadas)
 const IMAGENES_FS = (() => {
-    try { return readdirSync(IMAGENES_DIR).filter(f => f.endsWith('.jpg')); }
+    try { return readdirSync(NO_ENVIADAS_DIR).filter(f => f.toLowerCase().endsWith('.jpg')); }
     catch (e) { return []; }
 })();
 
-/** Busca la carta JPG personalizada: "APELLIDO NOMBRE salutacion purim 5786.jpg" */
+/** Busca la carta JPG personalizada en no_enviadas */
 function findCarta(nombre, apellido) {
     const target = normalizar(`${apellido} ${nombre} salutacion purim 5786`);
     const archivo = IMAGENES_FS.find(f => normalizar(f.replace('.jpg', '')) === target);
-    if (archivo) return path.join(IMAGENES_DIR, archivo);
+    if (archivo) return path.join(NO_ENVIADAS_DIR, archivo);
     return null;
+}
+
+/** Mueve carta de no_enviadas a enviadas (jpg + docx) */
+function moverAEnviadas(nombre, apellido) {
+    const target = normalizar(`${apellido} ${nombre} salutacion purim 5786`);
+    // JPG
+    try {
+        const jpgFiles = readdirSync(NO_ENVIADAS_DIR).filter(f => normalizar(f.replace('.jpg', '')) === target && f.endsWith('.jpg'));
+        for (const f of jpgFiles) {
+            renameSync(path.join(NO_ENVIADAS_DIR, f), path.join(ENVIADAS_DIR, f));
+        }
+    } catch (e) { /* ignore */ }
+    // DOCX
+    try {
+        const docxTarget = normalizar(`${apellido} ${nombre} salutacion purim 5786`);
+        const docxFiles = readdirSync(CARTAS_NO_ENV).filter(f => normalizar(f.replace('.docx', '')) === docxTarget && f.endsWith('.docx'));
+        for (const f of docxFiles) {
+            renameSync(path.join(CARTAS_NO_ENV, f), path.join(CARTAS_ENV, f));
+        }
+    } catch (e) { /* ignore */ }
 }
 
 /** Copia imagen a temp con nombre ASCII (evita problemas encoding en paths) */
@@ -74,15 +117,38 @@ function prepararImagen(srcPath, nombre, apellido) {
     return tempPath;
 }
 
+/** Texto intro con variaciones sutiles para evitar detección de contenido repetitivo */
 function textoIntro(nombre) {
-    return `Hola ${nombre}\nTe envío una nota de parte del Gran Rabino Isaac Sacca con motivo de la festividad de Purim.\nEnviamos también una Meguilat Esther para niños, una oportunidad ideal para compartir en familia.`;
+    const saludos = [
+        `Hola ${nombre}`,
+        `Hola ${nombre}!`,
+        `${nombre}, hola`,
+        `Hola ${nombre}, buen día`,
+    ];
+    const cuerpos = [
+        `Te envío una nota de parte del Gran Rabino Isaac Sacca con motivo de la festividad de Purim.`,
+        `Te comparto una nota del Gran Rabino Isaac Sacca por la festividad de Purim.`,
+        `Te acerco una salutación del Gran Rabino Isaac Sacca con motivo de Purim.`,
+        `Te hago llegar una nota del Gran Rabino Isaac Sacca en esta festividad de Purim.`,
+    ];
+    const cierres = [
+        `Enviamos también una Meguilat Esther para niños, una oportunidad ideal para compartir en familia.`,
+        `Adjuntamos también una Meguilat Esther para niños, ideal para compartir en familia.`,
+        `Te enviamos además una Meguilat Esther para niños, para disfrutar en familia.`,
+        `Incluimos una Meguilat Esther para niños, una linda oportunidad para compartir en familia.`,
+    ];
+    const s = saludos[Math.floor(Math.random() * saludos.length)];
+    const c = cuerpos[Math.floor(Math.random() * cuerpos.length)];
+    const ci = cierres[Math.floor(Math.random() * cierres.length)];
+    return `${s}\n${c}\n${ci}`;
 }
 
 // ---------- BÚSQUEDA DE CONTACTOS ----------
 
 /**
  * Busca un contacto por nombre completo.
- * Prioridad: 1) match exacto, 2) nombre+apellido ambos presentes, 3) inverso
+ * Prioridad: 1) exacto, 2) todas partes en contacto, 3) inverso,
+ *            4) solo primer nombre + apellido (ignora segundo nombre)
  * Nunca devuelve un JID ya usado.
  */
 function buscarContacto(contacts, nombreCompleto, usados) {
@@ -119,6 +185,16 @@ function buscarContacto(contacts, nombreCompleto, usados) {
         }
     }
 
+    // 4) Solo primer nombre + último apellido (ignora segundos nombres)
+    if (partes.length >= 3) {
+        const primerNombre = partes[0];
+        const ultimoApellido = partes[partes.length - 1];
+        for (const c of candidatos) {
+            const n = normalizar(c.name || c.pushname || '');
+            if (n.includes(primerNombre) && n.includes(ultimoApellido)) return c;
+        }
+    }
+
     return null;
 }
 
@@ -126,10 +202,8 @@ function buscarContacto(contacts, nombreCompleto, usados) {
 const MODO = process.argv[2] || 'test';
 
 const PRUEBAS = [
-    { contacto: 'Natalia Indibo',  nombre: 'Natalia',  apellido: 'Indibo' },
-    { contacto: 'Hernán Hamra',    nombre: 'Hernán',   apellido: 'Hamra' },
-    { contacto: 'Ariel Indibo',    nombre: 'Ariel',    apellido: 'Indibo' },
-    { contacto: 'Joni Indibo',     nombre: 'Jonathan',  apellido: 'Indibo' },
+    // Test con Hernán Hamra (propio) para verificar que funciona
+    { contacto: 'Hernan Hamra', nombre: 'Hernan', apellido: 'Hamra' },
 ];
 
 // ---------- MAIN ----------
@@ -154,8 +228,13 @@ async function main() {
 
     client.on('authenticated', () => console.log('Autenticado!'));
 
+    let yaEjecutado = false;  // evitar re-ejecución si reconecta
     client.on('ready', async () => {
-        console.log('\nWhatsApp Web LISTO!\n');
+        if (yaEjecutado) { console.log('Reconexión detectada, ignorando.'); return; }
+        yaEjecutado = true;
+        console.log('\nWhatsApp Web LISTO! Esperando sincronización...');
+        await sleep(20000);  // 20 seg para que la sesión se estabilice
+        console.log('Sincronización OK\n');
 
         const contacts = await client.getContacts();
         console.log(`Contactos WhatsApp: ${contacts.length}\n`);
@@ -207,65 +286,86 @@ async function main() {
             process.exit(1);
         }
 
-        console.log(`\nEnviando a ${envios.length} contactos en tandas de ${TANDA_SIZE}...`);
-        console.log(`Tiempo estimado: ~${Math.ceil(envios.length / TANDA_SIZE * 1.5)} minutos\n`);
+        // Aplicar límite diario
+        const totalAEnviar = Math.min(envios.length, LIMITE_DIARIO);
+        const enviosHoy = envios.slice(0, totalAEnviar);
+        if (envios.length > LIMITE_DIARIO) {
+            console.log(`\n*** LÍMITE DIARIO: enviando ${totalAEnviar} de ${envios.length} (quedan ${envios.length - totalAEnviar} para mañana) ***`);
+        }
 
-        // --- Envío por tandas ---
+        const tandas = Math.ceil(totalAEnviar / TANDA_SIZE);
+        console.log(`\nEnviando ${totalAEnviar} contactos en ${tandas} tandas de ${TANDA_SIZE}...`);
+        console.log(`Delays aleatorios: ${DELAY_CONTACTO_MIN/1000}-${DELAY_CONTACTO_MAX/1000}s entre contactos, ${DELAY_TANDA_MIN/60000}-${DELAY_TANDA_MAX/60000}min entre tandas\n`);
+
+        // --- Envío por tandas con delays aleatorios ---
         let enviados = 0;
         let errores = 0;
 
-        for (let i = 0; i < envios.length; i++) {
-            const e = envios[i];
+        for (let i = 0; i < enviosHoy.length; i++) {
+            const e = enviosHoy[i];
             const nro = i + 1;
 
-            // Pausa entre tandas
+            // Pausa entre tandas (aleatoria)
             if (i > 0 && i % TANDA_SIZE === 0) {
                 const tanda = Math.floor(i / TANDA_SIZE);
-                console.log(`\n--- Pausa entre tandas (tanda ${tanda} completa, ${i}/${envios.length}) ---`);
-                console.log(`  Esperando ${DELAY_ENTRE_TANDAS / 1000} seg...\n`);
-                await sleep(DELAY_ENTRE_TANDAS);
+                const pausa = randomDelay(DELAY_TANDA_MIN, DELAY_TANDA_MAX);
+                console.log(`\n--- Pausa entre tandas (tanda ${tanda} completa, ${i}/${totalAEnviar}) ---`);
+                console.log(`  Esperando ${Math.round(pausa / 60000)} min...\n`);
+                await sleep(pausa);
             }
 
-            console.log(`[${nro}/${envios.length}] ${e.contacto} (${e.id})`);
+            console.log(`[${nro}/${totalAEnviar}] ${e.contacto} (${e.id})`);
             try {
-                // 1. Texto intro
-                await client.sendMessage(e.id, textoIntro(e.nombre));
+                // 1. Texto intro (con variaciones)
+                const texto = textoIntro(e.saludo || e.nombre);
+                await client.sendMessage(e.id, texto);
                 console.log('  [1/3] Texto OK');
-                await sleep(DELAY_ENTRE_MENSAJES);
+                await sleep(randomDelay(DELAY_MSG_MIN, DELAY_MSG_MAX));
 
-                // 2. Carta JPG personalizada (inline, se ve en el chat)
+                // 2. Carta JPG personalizada (inline)
                 if (e.cartaPath) {
                     const tempImg = prepararImagen(e.cartaPath, e.nombre, e.apellido);
                     const media = MessageMedia.fromFilePath(tempImg);
-                    await client.sendMessage(e.id, media);  // sin sendMediaAsDocument => inline
-                    console.log(`  [2/3] Carta OK`);
+                    await client.sendMessage(e.id, media);
+                    console.log('  [2/3] Carta OK');
                 } else {
-                    console.log(`  [2/3] Carta SKIP (no existe)`);
+                    console.log('  [2/3] Carta SKIP (no existe)');
                 }
-                await sleep(DELAY_ENTRE_MENSAJES);
+                await sleep(randomDelay(DELAY_MSG_MIN, DELAY_MSG_MAX));
 
                 // 3. PDF Meguilat (como documento adjunto)
                 if (MEGUILAT_PDF) {
                     const pdfData = readFileSync(MEGUILAT_PDF);
                     const pdfMedia = new MessageMedia('application/pdf', pdfData.toString('base64'), 'MEGUILAT ESTER PARA NINOS.pdf');
                     await client.sendMessage(e.id, pdfMedia, { sendMediaAsDocument: true });
-                    console.log('  [3/3] Meguilat OK');
+                    console.log('  [3/3] Meguilat OK - esperando upload...');
+                    await sleep(randomDelay(DELAY_POST_PDF_MIN, DELAY_POST_PDF_MAX));
                 } else {
                     console.log('  [3/3] Meguilat SKIP');
                 }
 
+                // Mover a enviadas automáticamente
+                moverAEnviadas(e.nombre, e.apellido);
                 enviados++;
-                console.log('  COMPLETADO');
+                console.log('  COMPLETADO + movido a enviadas');
             } catch (err) {
                 errores++;
                 console.log(`  ERROR: ${err.message}`);
             }
-            await sleep(DELAY_ENTRE_CONTACTOS);
+
+            // Delay aleatorio entre contactos
+            const delayContacto = randomDelay(DELAY_CONTACTO_MIN, DELAY_CONTACTO_MAX);
+            console.log(`  Próximo en ${Math.round(delayContacto/1000)}s...`);
+            await sleep(delayContacto);
         }
 
         console.log(`\n=== ENVÍO FINALIZADO ===`);
         console.log(`Enviados: ${enviados} | Errores: ${errores} | No encontrados: ${noEncontrados.length}`);
-        await sleep(3000);
+        if (envios.length > LIMITE_DIARIO) {
+            console.log(`Pendientes para próxima ejecución: ${envios.length - totalAEnviar}`);
+        }
+        console.log('Esperando 30 seg para que terminen de subir los mensajes...');
+        await sleep(30000);
         process.exit(0);
     });
 
@@ -277,23 +377,39 @@ async function main() {
     await client.initialize();
 }
 
-// ---------- LEER EXCEL ----------
+// ---------- LEER EXCEL (solo PENDIENTE y REENVIAR de hoja CONTACTOS) ----------
 function leerExcel() {
-    const json = execSync(`python -c "
+    const tmpJson = path.resolve('./temp/contactos.json');
+    if (!existsSync(path.resolve('./temp'))) mkdirSync(path.resolve('./temp'), { recursive: true });
+    const pyScript = `
 import openpyxl, json, sys
-sys.stdout.reconfigure(encoding='utf-8')
 wb = openpyxl.load_workbook(r'${EXCEL_PATH.replace(/\\/g, '\\\\')}', data_only=True)
-ws = wb.active
+ws = wb['CONTACTOS']
 rows = []
 for row in ws.iter_rows(min_row=2, values_only=True):
     if row[0] is None: break
-    nombre = str(row[1] or '').strip()
-    apellido = str(row[2] or '').strip()
-    if nombre and apellido:
-        rows.append({'nombre': nombre, 'apellido': apellido, 'contacto': nombre + ' ' + apellido})
-print(json.dumps(rows, ensure_ascii=False))
-"`, { encoding: 'utf-8' });
-    return JSON.parse(json);
+    estado = str(row[6] or '').strip()
+    if estado in ('PENDIENTE', 'REENVIAR'):
+        nombre = str(row[1] or '').strip()
+        apellido = str(row[2] or '').strip()
+        saludo = str(row[7] or '').strip() if len(row) > 7 else ''
+        if nombre and apellido:
+            rows.append({'nombre': nombre, 'apellido': apellido, 'contacto': nombre + ' ' + apellido, 'saludo': saludo or nombre.split()[0]})
+with open(r'${tmpJson.replace(/\\/g, '\\\\')}', 'w', encoding='utf-8') as f:
+    json.dump(rows, f, ensure_ascii=False)
+print(f'{len(rows)} contactos pendientes exportados')
+`;
+    const pyFile = path.resolve('./temp/leer_excel.py');
+    writeFileSync(pyFile, pyScript, 'utf-8');
+    execSync(`python "${pyFile}"`, { encoding: 'utf-8' });
+    const data = readFileSync(tmpJson, 'utf-8');
+    let rows = JSON.parse(data);
+    // Filtrar por whitelist si está definida
+    if (WHITELIST.length > 0) {
+        rows = rows.filter(r => WHITELIST.includes(normalizar(r.contacto)));
+        console.log(`  Filtrado por whitelist: ${rows.length} de ${WHITELIST.length}`);
+    }
+    return rows;
 }
 
 main().catch(console.error);

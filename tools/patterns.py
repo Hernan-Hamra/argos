@@ -20,14 +20,7 @@ import platform
 from datetime import datetime, date, timedelta
 from collections import Counter, defaultdict
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'argos_tracker.db')
-TOOLS_PATH = os.path.join(os.path.dirname(__file__))
-
-
-def get_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+from tools.config import DB_PATH, TOOLS_DIR as TOOLS_PATH, get_connection
 
 
 def _plataforma_actual():

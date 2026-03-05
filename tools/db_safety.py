@@ -15,8 +15,7 @@ import os
 import shutil
 from datetime import datetime
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'argos_tracker.db')
-SAFETY_LOG = os.path.join(os.path.dirname(__file__), '..', 'data', 'safety_log.db')
+from tools.config import DB_PATH, SAFETY_LOG_PATH as SAFETY_LOG
 
 
 def init_safety():

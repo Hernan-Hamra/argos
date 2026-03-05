@@ -111,6 +111,41 @@ def process_message(msg):
         print(f"[LOOP] Mensaje tipo '{msg['type']}' no soportado")
 
 
+def _check_rutinas():
+    """Verifica rutinas overdue y envía recordatorio por Telegram."""
+    try:
+        from tools.tracker import get_rutinas_pendientes
+        from datetime import datetime
+        pendientes = get_rutinas_pendientes()
+        overdue = [r for r in pendientes if r.get('overdue')]
+        if not overdue:
+            return
+
+        # Solo enviar recordatorio 1 vez por hora (evitar spam)
+        hora_actual = datetime.now().strftime('%H')
+        cache_file = os.path.join(os.path.dirname(__file__), '..', 'data', '.rutina_reminder_cache')
+        try:
+            with open(cache_file, 'r') as f:
+                ultima_hora = f.read().strip()
+            if ultima_hora == hora_actual:
+                return  # Ya se envió recordatorio esta hora
+        except Exception:
+            pass
+
+        # Enviar recordatorio
+        nombres = ', '.join(r['nombre'] for r in overdue[:3])
+        msg = f"Rutinas pendientes: {nombres}. Responde para registrar."
+        send_text(msg)
+
+        # Marcar que ya se envió
+        with open(cache_file, 'w') as f:
+            f.write(hora_actual)
+
+        print(f"[LOOP] Recordatorio rutinas enviado: {nombres}")
+    except Exception as e:
+        print(f"[LOOP] Error checking rutinas: {e}")
+
+
 def run_loop(interval=10):
     """Loop principal de polling."""
     print(f"[LOOP] ARGOS Bot escuchando (cada {interval}s)...")
@@ -123,11 +158,18 @@ def run_loop(interval=10):
     escribir_mensaje('system', 'Loop iniciado - escuchando Telegram', tipo='system')
     send_text("ARGOS escuchando. Tus mensajes llegan al backend.")
 
+    ciclo = 0
     while True:
         try:
             msgs = get_updates(mark_read=True)
             for msg in msgs:
                 process_message(msg)
+
+            # Cada 30 ciclos (~5 min), verificar rutinas pendientes
+            ciclo += 1
+            if ciclo % 30 == 0:
+                _check_rutinas()
+
         except KeyboardInterrupt:
             print("\n[LOOP] Detenido por usuario")
             send_text("ARGOS Bot detenido.")
