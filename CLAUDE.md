@@ -2,12 +2,12 @@
 
 ## Qué es ARGOS
 Sistema dual: (1) Asistente personal inteligente con tracking integral de vida y trabajo, (2) Automatización de licitaciones públicas/privadas en Argentina.
-Espejo, no coach: muestra patrones, no empuja cambio. El usuario habla con ARGOS, no con agentes individuales.
+Espejo + Coach: muestra patrones (espejo) y también interpreta, sugiere y confronta cuando se lo piden (coach). El usuario habla con ARGOS, no con agentes individuales.
 Desarrollado por y para **Hernán Hamra** dentro de **Software By Design S.A.**
 
 ## Empresa
 - **Razón social:** SOFTWARE BY DESIGN S.A.
-- **CUIT:** 30-70894532-0
+- **CUIT:** 30-71190824-9
 - **Domicilio legal:** Uspallata 2977 1°G, CP 1435, CABA
 - **Presidente:** Ing. Marcelo Ariel Hamra (Ingeniero en Sistemas - UTN, DNI 20.665.853)
 - **Apoderado:** Hernán Hamra (DNI 23.505.172)
@@ -21,6 +21,7 @@ Desarrollado por y para **Hernán Hamra** dentro de **Software By Design S.A.**
 6. **Formato argentino:** montos con $ X.XXX.XXX,XX (puntos miles, coma decimal)
 7. **No tocar Excel con hojas helper** de otros proyectos
 8. **PPTx en "varios"** son docs intermedios de trabajo - no tocar
+9. **RUTINAS: Si el hook inyecta "RUTINAS PENDIENTES" o "ACCION BLOQUEANTE", ejecutar las rutinas ANTES de responder cualquier otra cosa.** No postergar, no ignorar, no decir "después lo hacemos". Las rutinas son el corazón del tracking. Si el usuario ya respondió en esta sesión, buscar la respuesta en caja negra y registrar con `ejecutar_rutina()`. NUNCA dejar pasar más de 3 mensajes sin atender rutinas pendientes.
 
 ## Estructura del proyecto
 ```
@@ -47,6 +48,7 @@ C:\Users\HERNAN\argos\
 │   ├── email_reader.py      ← lector IMAP: inbox, búsqueda, clasificación automática
 │   ├── resumen_periodico.py ← resumen semanal/mensual con insights automáticos
 │   ├── whatsapp_send.py     ← envío masivo WhatsApp via Baileys
+│   ├── pdf_form_filler.py   ← completar formularios PDF con datos DB (multi-formato/plataforma)
 │   └── seeds/               ← patrones base para nuevos usuarios
 ├── agents/                   ← sistema multi-agente (7 agentes + orquestador)
 │   ├── orquestador.py       ← enruta consultas al agente apropiado
@@ -105,6 +107,7 @@ C:\Users\HERNAN\argos\
 | Auto-aprendizaje | .claude/hooks/auto_aprendizaje.py, patterns.py |
 | Marketing masivo WhatsApp | whatsapp_send.py, wapp_baileys/ |
 | Nutrición y salud | tracker.py (tablas salud, nutricion) |
+| Completar formularios PDF | pdf_form_filler.py (multi-formato: PDF/PNG/JPG/HTML) |
 
 ## Catálogo de capacidades
 - **Fuente de verdad:** DB (`SELECT * FROM patrones WHERE tipo LIKE 'protocolo_%' AND estado='validado'`)

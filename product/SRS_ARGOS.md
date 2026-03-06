@@ -1,8 +1,8 @@
 # Especificacion de Requisitos de Software - ARGOS
 
 **Nombre del proyecto:** ARGOS - Asistente Personal Inteligente
-**Fecha:** 2026-03-04
-**Version:** 0.7 (Clasificacion seguimientos 2 ejes, auto-clasificacion por codigo, vista agrupada apertura, status proyectos laboral/personal)
+**Fecha:** 2026-03-05
+**Version:** 0.8 (Clasificacion seguimientos 2 ejes, auto-clasificacion por codigo, vista agrupada apertura, status proyectos laboral/personal)
 **Autor:** Hernan Hamra / ARGOS
 **Producto de:** AiControl (proyecto personal de Hernan Hamra)
 **Empresa del autor:** SOFTWARE BY DESIGN S.A. (CUIT 30-70894532-0)
@@ -18,6 +18,7 @@
 | 0.5     | Hernan Hamra + ARGOS | Roadmap v2 basado en auditoria real. Fase 0 cimientos (orquestador sesion, parseo, nudges, aprendizaje). 6 fases hasta lanzamiento junio 2026. | 2026-03-04 |
 | 0.6     | Hernan Hamra + ARGOS | Config centralizado (Win/Mac/Cloud), motor de rutinas (5 seed), email IMAP reader, resumen semanal/mensual, learning loop cerrado (consultar_catalogo), scheduler rutinas en hooks+Telegram. 3 bugs fix. Auditoria: 28/49 req DONE (57%), 0 gaps ROJOS. | 2026-03-04 |
 | 0.7     | Hernan Hamra + ARGOS | Sistema de clasificacion de seguimientos: 2 ejes (responsable yo/otro × 9 tipos). Auto-clasificacion por codigo con confianza. Vista agrupada en apertura: Mis Compromisos, Compromisos de Terceros, Vencimientos. Status por proyecto laboral/personal. | 2026-03-05 |
+| 0.8     | Hernan Hamra + ARGOS | ARGOS es espejo + coach. Fase 6 coaching. Transparencia 3 fuentes (LLM 40% + DB 35% + contexto 25%). Criterio de decision. 3 capas de confianza del cliente. Metricas de rendimiento por sesion (9 columnas nuevas en metricas_sesion). Perfil psicologico del usuario (8 rasgos con evidencia). | 2026-03-05 |
 
 ---
 
@@ -1396,6 +1397,55 @@ Le pedis una herramienta y ARGOS la construye. "Quiero trackear pacientes" → t
 
 Los perfiles no son excluyentes. Un usuario puede ser Project Manager en lo laboral y Personal en lo privado.
 
+### Fase 6: Coaching (cuando el usuario lo necesita)
+
+ARGOS no solo muestra datos (espejo) — tambien interpreta, sugiere y confronta (coach).
+
+**Espejo:** "Dormiste 4.5hs y tu estres esta en 6/10 hace 10 dias."
+**Coach:** "La inseguridad que sentis es racional, no emocional. Se resuelve con datos, no con validacion."
+
+El coaching se activa cuando:
+- El usuario pide opinion o reflexion
+- ARGOS detecta patron recurrente que amerita intervencion (estres cronico, conflicto repetido)
+- El usuario esta redactando comunicacion sensible (tono, estrategia, atenuantes)
+
+El coaching NO se activa sin pedir. Regla: espejo por default, coach cuando el usuario lo pide o cuando el patron es riesgoso.
+
+### Como funciona la inteligencia de ARGOS
+
+La capacidad de ARGOS viene de 3 fuentes que se cruzan en tiempo real:
+
+| Fuente | Peso aprox. | Que aporta | Sin esta fuente |
+|---|---|---|---|
+| **LLM (modelo base)** | ~40% | Conocimiento general, psicologia, comunicacion, logica, redaccion | Coach generico sin contexto personal |
+| **DB (datos del usuario)** | ~35% | Historial, patrones, metricas, bienestar, reflexiones, seguimientos | Planilla con numeros sin interpretar |
+| **Contexto de sesion** | ~25% | Lo que el usuario dice ahora, correcciones, tono, emociones | Respuestas desconectadas del momento |
+
+**La magia esta en el cruce.** Sin DB, ARGOS dice cosas que suenan bien pero no tienen sustento.
+Sin LLM, la DB es una tabla que nadie interpreta. Sin contexto, las respuestas no se ajustan al momento.
+
+### Criterio de decision de ARGOS
+
+1. Lee lo que el usuario dice (contexto)
+2. Busca en la DB si hay patron previo (datos)
+3. Cruza con conocimiento del tema (entrenamiento LLM)
+4. Si hay conflicto entre las 3 fuentes → pregunta al usuario
+5. Si las 3 coinciden → da la respuesta con confianza
+6. Siempre etiqueta que es DATO (de la DB) y que es INTERPRETACION (del LLM)
+
+### Confianza del cliente en el metodo
+
+3 capas de confianza:
+
+**Capa 1 — Transparencia radical:**
+El cliente siempre puede ver de donde sale cada conclusion. "Tu estres esta en 6" → dato de la DB. "Eso es sindrome del impostor" → interpretacion del LLM. Se etiqueta.
+
+**Capa 2 — El usuario corrige:**
+Cada correccion mejora el modelo. Un coach que no acepta correcciones no es coach — es dogma. Ejemplo real: en una sesion el usuario corrigio 6 veces a ARGOS (datos familiares, materiales de obra, tono de mensaje). Cada correccion quedo registrada y mejoró futuras respuestas.
+
+**Capa 3 — Evolucion medible:**
+Si en 30 dias el usuario tiene: mas temas cerrados, menos estres, mejor sueno, mas decisiones tomadas → el metodo funciona. Si no → hay que ajustar. Los datos lo dicen, no el coach.
+
 ### Lo que hace unico al metodo
 
 1. No es una app con botones — es una conversacion con un asistente que te conoce.
@@ -1404,6 +1454,9 @@ Los perfiles no son excluyentes. Un usuario puede ser Project Manager en lo labo
 4. No juzga — pero tampoco miente si le pedis honestidad.
 5. Crece con vos — cada sesion lo hace mas util.
 6. Se adapta a tu perfil — no es lo mismo un psicologo que un director de obra.
+7. Es espejo Y coach — muestra patrones y tambien interpreta, sugiere y confronta cuando se lo piden.
+8. Transparencia total — el usuario siempre sabe que es dato y que es interpretacion.
+9. El usuario corrige a ARGOS — no es un sistema cerrado, es un dialogo que mejora con el uso.
 
 ---
 
@@ -1418,7 +1471,8 @@ Los perfiles no son excluyentes. Un usuario puede ser Project Manager en lo labo
 | **Seed**             | Patron generalizable empaquetado para nuevos usuarios.                            |
 | **Nudge**            | Recordatorio suave. No invasivo.                                                  |
 | **Motor de rutinas** | Componente por codigo que ejecuta seguimientos sin depender del LLM.              |
-| **Espejo**           | Filosofia de ARGOS: mostrar patrones sin juzgar ni empujar cambio.                |
+| **Espejo**           | Modo de ARGOS: mostrar patrones sin juzgar. Se complementa con modo Coach.        |
+| **Coach**            | Modo de ARGOS: interpretar, sugerir, confrontar. Se activa cuando el usuario lo pide o ante patron riesgoso. |
 | **Bridge**           | Puente entre Telegram y Claude Code (bridge.py).                                  |
 | **WAL**              | Write-Ahead Logging. Modo SQLite para concurrencia segura.                        |
 | **SQLCipher**        | Extension de SQLite con encriptacion AES-256.                                     |

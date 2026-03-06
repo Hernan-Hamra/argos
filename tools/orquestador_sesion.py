@@ -317,6 +317,94 @@ def registrar_checkpoint_cierre(texto_respuesta, sesion_id=None):
     }
 
 
+def calcular_metricas_rendimiento():
+    """
+    Calcula métricas de rendimiento del usuario en la sesión actual.
+    Se ejecuta automáticamente al cierre.
+    Guarda en metricas_sesion las columnas de rendimiento.
+    """
+    conn = get_connection()
+    hoy = date.today().isoformat()
+
+    # Canales activos y volumen
+    canales = {}
+    for row in conn.execute(
+        "SELECT canal, COUNT(*) FROM mensajes WHERE timestamp LIKE ? GROUP BY canal",
+        (f"{hoy}%",)
+    ):
+        canales[row[0]] = row[1]
+
+    # Eventos de hoy para contar decisiones y temas
+    eventos_hoy = conn.execute(
+        "SELECT tipo, subtipo, descripcion FROM eventos WHERE fecha = ?", (hoy,)
+    ).fetchall()
+
+    decisiones = sum(1 for e in eventos_hoy if e[0] in ('comunicacion', 'decision', 'hito'))
+    temas_cerrados = sum(1 for e in eventos_hoy if e[1] in ('hito', 'completado', 'cerrado'))
+    temas_abiertos = sum(1 for e in eventos_hoy if e[1] and 'propuesta' in (e[1] or ''))
+
+    # Seguimientos
+    seg_creados = conn.execute(
+        "SELECT COUNT(*) FROM seguimiento WHERE fecha_limite >= ? AND rowid IN "
+        "(SELECT rowid FROM seguimiento ORDER BY rowid DESC LIMIT 50)",
+        (hoy,)
+    ).fetchone()[0]
+
+    seg_resueltos = conn.execute(
+        "SELECT COUNT(*) FROM eventos WHERE fecha = ? AND subtipo = 'completado'",
+        (hoy,)
+    ).fetchone()[0]
+
+    # Proyectos tocados
+    proyectos_ids = set()
+    for e in eventos_hoy:
+        pass  # contamos por tipos de canal
+    # Contar por canales distintos que implican proyectos
+    proyectos_tocados = sum(1 for c in canales if c.startswith('whatsapp_'))
+    if canales.get('chat', 0) > 0:
+        proyectos_tocados += 1
+
+    # % comunicación (mensajes WhatsApp+Telegram vs total)
+    total_msgs = sum(canales.values())
+    msgs_comunicacion = sum(v for k, v in canales.items() if k != 'chat')
+    pct_comunicacion = round(msgs_comunicacion / total_msgs * 100, 1) if total_msgs > 0 else 0
+
+    import json
+    metricas = {
+        'decisiones_estrategicas': decisiones,
+        'temas_cerrados': temas_cerrados,
+        'temas_abiertos': temas_abiertos,
+        'seguimientos_creados': seg_creados,
+        'seguimientos_resueltos': seg_resueltos,
+        'canales_activos': json.dumps(canales, ensure_ascii=False),
+        'pct_comunicacion': pct_comunicacion,
+        'proyectos_tocados': proyectos_tocados,
+    }
+
+    # Actualizar metricas_sesion de hoy si existe
+    row = conn.execute(
+        "SELECT id FROM metricas_sesion WHERE fecha = ? ORDER BY id DESC LIMIT 1",
+        (hoy,)
+    ).fetchone()
+
+    if row:
+        conn.execute("""UPDATE metricas_sesion SET
+            decisiones_estrategicas = ?, temas_cerrados = ?, temas_abiertos = ?,
+            seguimientos_creados = ?, seguimientos_resueltos = ?,
+            canales_activos = ?, pct_comunicacion = ?, proyectos_tocados = ?
+            WHERE id = ?""",
+            (metricas['decisiones_estrategicas'], metricas['temas_cerrados'],
+             metricas['temas_abiertos'], metricas['seguimientos_creados'],
+             metricas['seguimientos_resueltos'], metricas['canales_activos'],
+             metricas['pct_comunicacion'], metricas['proyectos_tocados'],
+             row[0])
+        )
+    conn.commit()
+    conn.close()
+
+    return metricas
+
+
 def cierre(sesion_id=None, respuestas_cierre=None):
     """
     Ejecuta el protocolo de cierre COMPLETO.
@@ -371,6 +459,13 @@ def cierre(sesion_id=None, respuestas_cierre=None):
             resultado['aprendizajes'] = aprender_de_sesion(sesion_id)
         except Exception as e:
             resultado['aprendizajes'] = {'error': str(e)}
+
+        # Métricas de rendimiento
+        try:
+            metricas_rend = calcular_metricas_rendimiento()
+            resultado['metricas_rendimiento'] = metricas_rend
+        except Exception as e:
+            resultado['metricas_rendimiento'] = {'error': str(e)}
 
         # Cerrar sesión
         if sesion_id:
@@ -559,6 +654,21 @@ def formato_cierre(data):
         if data.get('cierre_sesion'):
             cs = data['cierre_sesion']
             lines.append(f"  Duración: {cs.get('duracion_min', 0)} min | {cs.get('total_mensajes', 0)} mensajes")
+
+        # Métricas de rendimiento
+        mr = data.get('metricas_rendimiento')
+        if mr and not mr.get('error'):
+            lines.append("")
+            lines.append("--- Rendimiento de la sesión ---")
+            lines.append(f"  Decisiones estratégicas: {mr.get('decisiones_estrategicas', 0)}")
+            lines.append(f"  Temas cerrados / abiertos: {mr.get('temas_cerrados', 0)} / {mr.get('temas_abiertos', 0)}")
+            lines.append(f"  Seguimientos creados / resueltos: {mr.get('seguimientos_creados', 0)} / {mr.get('seguimientos_resueltos', 0)}")
+            lines.append(f"  Proyectos tocados: {mr.get('proyectos_tocados', 0)}")
+            lines.append(f"  % comunicación: {mr.get('pct_comunicacion', 0)}%")
+            import json
+            canales = json.loads(mr.get('canales_activos', '{}')) if isinstance(mr.get('canales_activos'), str) else mr.get('canales_activos', {})
+            if canales:
+                lines.append(f"  Canales: {', '.join(f'{k}={v}' for k,v in canales.items())}")
 
     return "\n".join(lines)
 

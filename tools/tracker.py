@@ -2730,6 +2730,15 @@ def ejecutar_rutina(rutina_id, respuestas=None):
                  racha_dias = ?, max_racha = ?
                  WHERE id = ?""",
               (hoy, nueva_racha, max_racha, rutina_id))
+
+    # Registrar en rutinas_log
+    import json as _json
+    hora_actual = datetime.now().strftime('%H:%M')
+    resp_json = _json.dumps(respuestas, ensure_ascii=False) if respuestas else None
+    c.execute("""INSERT INTO rutinas_log (rutina_id, fecha, hora, respuestas, ejecutada)
+                 VALUES (?, ?, ?, ?, 1)""",
+              (rutina_id, hoy, hora_actual, resp_json))
+
     conn.commit()
     conn.close()
 
